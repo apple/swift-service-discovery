@@ -1,0 +1,18 @@
+--swiftversion 5.1
+
+# file options
+
+--exclude .build
+
+# format options
+
+--ifdef no-indent
+--indent 4
+--patternlet inline
+--self insert
+--stripunusedargs closure-only
+--wraparguments before-first
+
+# rules
+
+--disable blankLinesAroundMark
