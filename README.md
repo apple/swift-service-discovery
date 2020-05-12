@@ -8,7 +8,7 @@ This is the beginning of a community-driven open-source project actively seeking
 
 ## Getting started
 
-If you have a server-side Swift application and would like to locate other services within the same system for making HTTP requests or RPCs, then SwiftServiceDiscovery is  the right library for the job. Below you will find all you need to know to get started.
+If you have a server-side Swift application and would like to locate other services within the same system for making HTTP requests or RPCs, then SwiftServiceDiscovery is the right library for the job. Below you will find all you need to know to get started.
 
 ### Adding the dependency
 
@@ -74,7 +74,7 @@ As the API has just launched, not many implementations exist yet. If you are int
 
 ## Implementing a service discovery backend
 
-Note: Unless you need to implement a custom service discovery backend, everything in this section is likely not relevant, so please feel free to skip.
+> Note: Unless you need to implement a custom service discovery backend, everything in this section is likely not relevant, so please feel free to skip.
 
 To become a compatible service discovery backend that all SwiftServiceDiscovery consumers can use, you need to do implement a type (must be a class) that conforms to `DynamicServiceDiscovery`, a protocol provided by SwiftServiceDiscovery. `DynamicServiceDiscovery` adds the `subscribe` method on top of `ServiceDiscovery` protocol, which provides the fundamental `lookup` method. `subscribe` is already implemented via extension, so the only task you have is implement `lookup`. 
 
