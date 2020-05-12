@@ -56,7 +56,7 @@ serviceDiscovery.subscribe(service: service, refreshInterval: .seconds(10)) { in
 }
 ```
 
-### Selecting a metrics backend implementation (applications only)
+### Selecting a service discovery backend implementation (applications only)
 
 Note: If you are building a library, you don't need to concern yourself with this section. It is the end users of your library (the applications) who will decide which service discovery backend to use. Libraries should never change the service discovery implementation as that is something owned by the application.
 
