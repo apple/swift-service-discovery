@@ -2,13 +2,13 @@
 
 A Service Discovery API for Swift. 
 
-Service discovery is how services locate one another within a distributed system. This API is designed to establish a standard that can be implemented by various service discovery backends/implementations such as DNS-based, key-value store using Zookeeper, etc.
+Service discovery is how services locate one another within a distributed system. This API library is designed to establish a standard that can be implemented by various service discovery backends such as DNS-based, key-value store using Zookeeper, etc. In other words, this library defines the API only, similar to [SwiftLog](https://github.com/apple/swift-log) and [SwiftMetrics](https://github.com/apple/swift-metrics); actual functionalities are provided by backend implementations. 
 
 This is the beginning of a community-driven open-source project actively seeking contributions, be it code, documentation, or ideas. Apart from contributing to SwiftServiceDiscovery itself, we need SwiftServiceDiscovery-compatible libraries which manage service registration and location information for querying. What SwiftServiceDiscovery provides today is covered in the [API docs][api-docs], but it will continue to evolve with community input.
 
 ## Getting started
 
-If you have a server-side Swift application or a cross-platform (e.g. Linux, macOS) application, and you would like to locate other services within the same system for making HTTP requests or RPCs, then SwiftServiceDiscovery is a great idea. Below you will find all you need to know to get started.
+If you have a server-side Swift application and would like to locate other services within the same system for making HTTP requests or RPCs, then SwiftServiceDiscovery is  the right library for the job. Below you will find all you need to know to get started.
 
 ### Adding the dependency
 
@@ -58,7 +58,7 @@ serviceDiscovery.subscribe(service: service, refreshInterval: .seconds(10)) { in
 
 ### Selecting a service discovery backend implementation (applications only)
 
-Note: If you are building a library, you don't need to concern yourself with this section. It is the end users of your library (the applications) who will decide which service discovery backend to use. Libraries should never change the service discovery implementation as that is something owned by the application.
+> Note: If you are building a library, you don't need to concern yourself with this section. It is the end users of your library (the applications) who will decide which service discovery backend to use. Libraries should never change the service discovery implementation as that is something owned by the application.
 
 SwiftServiceDiscovery only provides the service discovery API. As an application owner, you need to select a service discovery backend (such as the ones mentioned above) to make querying available.
 
@@ -77,41 +77,6 @@ As the API has just launched, not many implementations exist yet. If you are int
 Note: Unless you need to implement a custom service discovery backend, everything in this section is likely not relevant, so please feel free to skip.
 
 To become a compatible service discovery backend that all SwiftServiceDiscovery consumers can use, you need to do implement a type (must be a class) that conforms to `DynamicServiceDiscovery`, a protocol provided by SwiftServiceDiscovery. `DynamicServiceDiscovery` adds the `subscribe` method on top of `ServiceDiscovery` protocol, which provides the fundamental `lookup` method. `subscribe` is already implemented via extension, so the only task you have is implement `lookup`. 
-
-For example, here is a skeleton of file-based service discovery:
-
-```swift
-public class FileBasedServiceDiscovery: DynamicServiceDiscovery {
-    public typealias Service = String
-    public typealias Instance = HostPort
-
-    public let filePath: String
-    
-    public let defaultLookupTimeout: DispatchTimeInterval = .milliseconds(100)
-    public let defaultRefreshInterval: DispatchTimeInterval = .seconds(30)
-    public let instancesToExclude: Set<HostPort>? = nil
-
-    private let _isShutdown = SDAtomic<Bool>(false)
-
-    public var isShutdown: Bool {
-        self._isShutdown.load()
-    }
-    
-    public init(filePath: String) {
-        self.filePath = filePath
-    }    
-
-    public func lookup(service: Service, deadline: DispatchTime?, callback: @escaping (Result<Set<Instance>, Error>) -> Void) {
-        // Load file at `filePath` and extract instances from it
-        let instances = ...
-        callback(.success(instances))
-    }
-
-    public func shutdown() {
-        self._isShutdown.store(true)
-    }
-}
-```
 
 Do not hesitate to get in touch as well, over on https://forums.swift.org/c/server.
 
