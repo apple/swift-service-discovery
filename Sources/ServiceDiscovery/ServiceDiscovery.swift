@@ -33,13 +33,20 @@ public protocol ServiceDiscovery {
     var isShutdown: Bool { get }
 
     /// Performs a lookup for the `service`'s instances. The result will be sent to `callback`.
-    func lookup(service: Service, deadline: DispatchTime?, callback: @escaping (Result<Set<Instance>, Error>) -> Void)
+    /// `defaultLookupTimeout`  will be used to compute `deadline` in case one is not specified.
+    func lookup(service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
+
+    /// Subscribes to receive `service`'s instances whenever they change.
+    ///
+    /// `lookup` will be called once and its results sent to `handler` when this method is first invoked. Subsequently, `handler`
+    /// will only receive updates when the `service`'s instances change.
+    mutating func subscribe(service: Service, handler: @escaping (Result<[Instance], Error>) -> Void)
 
     /// Performs clean up steps if any before shutting down.
     func shutdown() throws
 }
 
-/// Represents errors that might occur during lookup.
+/// Errors that might occur during lookup.
 public struct LookupError: Error, Equatable, CustomStringConvertible {
     internal enum ErrorType: Equatable, CustomStringConvertible {
         case unknownService
@@ -72,35 +79,29 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
     public static let timedOut = LookupError(type: .timedOut)
 }
 
-// MARK: - Dynamic service discovery protocol
+// MARK: - Polling service discovery protocol
 
-/// Provides lookup for service instances that might change.
-public protocol DynamicServiceDiscovery: ServiceDiscovery, AnyObject {
-    /// Default refresh interval for `subscribe`.
-    var defaultRefreshInterval: DispatchTimeInterval { get }
-
-    /// Subscribes to receive `service`'s instances, which gets polled and refreshed automatically at `refreshInterval`.
-    /// `handler` will be called after the first lookup completes, and subsequently only when the instances change.
-    ///
-    /// The configured `defaultRefreshInterval` will be used when `refreshInteral` is  `nil`.
-    func subscribe(service: Service, refreshInterval: DispatchTimeInterval?, handler: @escaping (Set<Instance>) -> Void)
+/// Polls for service instance updates at fixed interval.
+public protocol PollingServiceDiscovery: ServiceDiscovery, AnyObject {
+    /// Poll interval for `subscribe`.
+    var pollInterval: DispatchTimeInterval { get }
 }
 
-extension DynamicServiceDiscovery {
-    public func subscribe(service: Service, refreshInterval: DispatchTimeInterval? = nil, handler: @escaping (Set<Instance>) -> Void) {
+extension PollingServiceDiscovery {
+    public func subscribe(service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
         self.lookup(service: service, deadline: nil) { result in
             switch result {
             case .success(let instances):
-                handler(instances)
-                self._subscribe(service: service, refreshInterval: refreshInterval, previousInstances: instances, onChange: handler)
+                handler(.success(instances))
+                self._pollAndNotifyOnChange(service: service, previousInstances: instances, onChange: handler)
             case .failure:
-                self._subscribe(service: service, refreshInterval: refreshInterval, previousInstances: nil, onChange: handler)
+                self._pollAndNotifyOnChange(service: service, previousInstances: nil, onChange: handler)
             }
         }
     }
 
-    private func _subscribe(service: Service, refreshInterval: DispatchTimeInterval?, previousInstances: Set<Instance>?, onChange: @escaping (Set<Instance>) -> Void) {
-        DispatchQueue.global().asyncAfter(deadline: DispatchTime.now() + (refreshInterval ?? self.defaultRefreshInterval)) { [weak self] in
+    private func _pollAndNotifyOnChange(service: Service, previousInstances: [Instance]?, onChange: @escaping (Result<[Instance], Error>) -> Void) {
+        DispatchQueue.global().asyncAfter(deadline: DispatchTime.now() + self.pollInterval) { [weak self] in
             if let self = self {
                 guard !self.isShutdown else { return }
 
@@ -109,11 +110,11 @@ extension DynamicServiceDiscovery {
                     switch result {
                     case .success(let instances):
                         if previousInstances != instances {
-                            onChange(instances)
+                            onChange(.success(instances))
                         }
-                        self._subscribe(service: service, refreshInterval: refreshInterval, previousInstances: instances, onChange: onChange)
+                        self._pollAndNotifyOnChange(service: service, previousInstances: instances, onChange: onChange)
                     case .failure:
-                        self._subscribe(service: service, refreshInterval: refreshInterval, previousInstances: previousInstances, onChange: onChange)
+                        self._pollAndNotifyOnChange(service: service, previousInstances: previousInstances, onChange: onChange)
                     }
                 }
             }

@@ -54,6 +54,10 @@ public class SDAtomic<T: SDAtomicPrimitive> {
         self.rawPointer = T.sd_atomic_create(value)
     }
 
+    deinit {
+        self.rawPointer.deinitialize(count: 1)
+    }
+
     /// Atomically compares the value against `expected` and, if they are equal,
     /// replaces the value with `desired`.
     ///
@@ -85,9 +89,5 @@ public class SDAtomic<T: SDAtomicPrimitive> {
     /// Atomically replaces the value of this object with `value`.
     public func store(_ value: T) {
         T.sd_atomic_store(self.rawPointer, value)
-    }
-
-    deinit {
-        self.rawPointer.deinitialize(count: 1)
     }
 }

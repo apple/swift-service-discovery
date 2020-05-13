@@ -11,33 +11,37 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-
 import Dispatch
 @testable import ServiceDiscovery
 import ServiceDiscoveryHelpers
 import XCTest
 
-class DynamicServiceDiscoveryTests: XCTestCase {
+class PollingServiceDiscoveryTests: XCTestCase {
     func test_subscribe() {
-        let serviceDiscovery = MockDynamicServiceDiscovery()
+        let serviceDiscovery = MockPollingServiceDiscovery()
         defer { serviceDiscovery.shutdown() }
 
         let semaphore = DispatchSemaphore(value: 0)
         let counterA = SDAtomic<Int>(0)
         let counterB = SDAtomic<Int>(0)
 
-        serviceDiscovery.subscribe(service: "test-service", refreshInterval: .milliseconds(100)) { instances in
+        serviceDiscovery.subscribe(service: "test-service") { result in
             let counter = serviceDiscovery.counter
 
-            switch instances {
-            case serviceDiscovery.instancesA:
-                XCTAssertTrue(counter == 1 || counter == 4, "Expected to receive instancesA at counter 1 and 4 only, got it at \(counter)")
-                _ = counterA.add(1)
-            case serviceDiscovery.instancesB:
-                XCTAssertTrue(counter == 3, "Expected to receive instancesB at counter 3 only, got it at \(counter)")
-                _ = counterB.add(1)
-            default:
-                return XCTFail("Unexpected instances: \(instances)")
+            switch result {
+            case .failure(let error):
+                return XCTFail("Unexpected subscription error: \(error)")
+            case .success(let instances):
+                switch instances {
+                case serviceDiscovery.instancesA:
+                    XCTAssertTrue(counter == 1 || counter == 4, "Expected to receive instancesA at counter 1 and 4 only, got it at \(counter)")
+                    _ = counterA.add(1)
+                case serviceDiscovery.instancesB:
+                    XCTAssertTrue(counter == 3, "Expected to receive instancesB at counter 3 only, got it at \(counter)")
+                    _ = counterB.add(1)
+                default:
+                    return XCTFail("Unexpected instances: \(instances)")
+                }
             }
 
             if counter >= 4 {
@@ -54,12 +58,12 @@ class DynamicServiceDiscoveryTests: XCTestCase {
     }
 }
 
-private class MockDynamicServiceDiscovery: DynamicServiceDiscovery {
+private class MockPollingServiceDiscovery: PollingServiceDiscovery {
     typealias Service = String
     typealias Instance = HostPort
 
     let defaultLookupTimeout: DispatchTimeInterval = .milliseconds(50)
-    let defaultRefreshInterval: DispatchTimeInterval = .milliseconds(50)
+    let pollInterval: DispatchTimeInterval = .milliseconds(50)
     let instancesToExclude: Set<HostPort>? = nil
 
     private let _isShutdown = SDAtomic<Bool>(false)
@@ -68,17 +72,17 @@ private class MockDynamicServiceDiscovery: DynamicServiceDiscovery {
         self._isShutdown.load()
     }
 
-    let instancesA: Set<Instance> = [
+    let instancesA = [
         HostPort(host: "localhost", port: 7001),
     ]
-    let instancesB: Set<Instance> = [
+    let instancesB = [
         HostPort(host: "localhost", port: 9001),
         HostPort(host: "localhost", port: 9002),
     ]
 
     var counter: Int = 0
 
-    func lookup(service: Service, deadline: DispatchTime?, callback: @escaping (Result<Set<Instance>, Error>) -> Void) {
+    func lookup(service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void) {
         self.counter += 1
 
         if self.counter % 3 == 0 {
