@@ -14,28 +14,29 @@
 
 import Dispatch
 @testable import ServiceDiscovery
+import ServiceDiscoveryHelpers
 import XCTest
 
-class StaticServiceDiscoveryTests: XCTestCase {
+class InMemoryServiceDiscoveryTests: XCTestCase {
     typealias Service = String
     typealias Instance = HostPort
 
     func test_lookup() throws {
         let fooService = "fooService"
-        let fooInstances: Set<Instance> = [
+        let fooInstances = [
             HostPort(host: "localhost", port: 7001),
         ]
 
         let barService = "bar-service"
-        let barInstances: Set<Instance> = [
+        let barInstances = [
             HostPort(host: "localhost", port: 9001),
             HostPort(host: "localhost", port: 9002),
         ]
 
-        var configuration = StaticServiceDiscovery<Service, Instance>.Configuration(instances: [fooService: fooInstances])
+        var configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: fooInstances])
         configuration.register(service: barService, instances: barInstances)
 
-        let serviceDiscovery = StaticServiceDiscovery(configuration: configuration)
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         defer { serviceDiscovery.shutdown() }
 
         let fooResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: fooService)
@@ -56,8 +57,8 @@ class StaticServiceDiscoveryTests: XCTestCase {
     func test_lookup_errorIfServiceUnknown() throws {
         let unknownService = "unknown-service"
 
-        let configuration = StaticServiceDiscovery<Service, Instance>.Configuration(instances: ["foo-service": []])
-        let serviceDiscovery = StaticServiceDiscovery<Service, Instance>(configuration: configuration)
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
+        let serviceDiscovery = InMemoryServiceDiscovery<Service, Instance>(configuration: configuration)
         defer { serviceDiscovery.shutdown() }
 
         let result = try ensureResult(serviceDiscovery: serviceDiscovery, service: unknownService)
@@ -69,9 +70,59 @@ class StaticServiceDiscoveryTests: XCTestCase {
         }
     }
 
-    private func ensureResult(serviceDiscovery: StaticServiceDiscovery<Service, Instance>, service: Service) throws -> Result<Set<Instance>, Error> {
+    func test_subscribe() throws {
+        let fooService = "fooService"
+        let fooInstances = [
+            HostPort(host: "localhost", port: 7001),
+        ]
+
+        let barService = "bar-service"
+        let barInstances = [
+            HostPort(host: "localhost", port: 9001),
+            HostPort(host: "localhost", port: 9002),
+        ]
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: fooInstances])
+        var serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        defer { serviceDiscovery.shutdown() }
+
         let semaphore = DispatchSemaphore(value: 0)
-        var result: Result<Set<Instance>, Error>?
+        let resultCounter = SDAtomic<Int>(0)
+
+        // Two results are expected:
+        // Result #1: LookupError.unknownService because bar-service is not registered
+        // Result #2: Later we register bar-service and that should notify the subscriber
+        serviceDiscovery.subscribe(service: barService) { result in
+            _ = resultCounter.add(1)
+
+            guard resultCounter.load() <= 2 else {
+                return XCTFail("Expected to receive result 2 times only")
+            }
+
+            switch result {
+            case .failure(let error):
+                guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    return XCTFail("Expected the first result to be LookupError.unknownService since \(barService) is not registered, got \(error)")
+                }
+            case .success(let instances):
+                guard resultCounter.load() == 2 else {
+                    return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
+                }
+                XCTAssertEqual(instances, barInstances, "Expected instances of \(barService) to be \(barInstances), got \(instances)")
+                semaphore.signal()
+            }
+        }
+
+        serviceDiscovery.register(service: barService, instances: barInstances)
+
+        _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
+
+        XCTAssertEqual(resultCounter.load(), 2, "Expected to receive result 2 times, got \(resultCounter.load())")
+    }
+
+    private func ensureResult(serviceDiscovery: InMemoryServiceDiscovery<Service, Instance>, service: Service) throws -> Result<[Instance], Error> {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Result<[Instance], Error>?
 
         serviceDiscovery.lookup(service: service) {
             result = $0
