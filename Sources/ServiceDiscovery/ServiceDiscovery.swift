@@ -33,7 +33,8 @@ public protocol ServiceDiscovery {
     var isShutdown: Bool { get }
 
     /// Performs a lookup for the `service`'s instances. The result will be sent to `callback`.
-    /// `defaultLookupTimeout`  will be used to compute `deadline` in case one is not specified.
+    ///
+    /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
     func lookup(service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
 
     /// Subscribes to receive `service`'s instances whenever they change.

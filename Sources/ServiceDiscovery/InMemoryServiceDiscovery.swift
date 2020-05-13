@@ -11,6 +11,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+
 import Dispatch
 import ServiceDiscoveryHelpers
 
@@ -41,18 +42,33 @@ public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: S
         self.serviceInstances = configuration.serviceInstances
     }
 
-    // TODO: do we need/want to enforce the timeout/deadline here?
     public func lookup(service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
-        guard var instances = self.serviceInstances[service] else {
-            callback(.failure(LookupError.unknownService))
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Result<[Instance], Error>?
+
+        DispatchQueue.global().async {
+            guard var instances = self.serviceInstances[service] else {
+                result = .failure(LookupError.unknownService)
+                semaphore.signal()
+                return
+            }
+
+            if let instancesToExclude = self.instancesToExclude {
+                instances.removeAll { instancesToExclude.contains($0) }
+            }
+
+            result = .success(instances)
+            semaphore.signal()
+        }
+
+        _ = semaphore.wait(timeout: deadline ?? DispatchTime.now() + self.defaultLookupTimeout)
+
+        guard let _result = result else {
+            callback(.failure(LookupError.timedOut))
             return
         }
 
-        if let instancesToExclude = self.instancesToExclude {
-            instances.removeAll { instancesToExclude.contains($0) }
-        }
-
-        callback(.success(instances))
+        callback(_result)
     }
 
     public mutating func subscribe(service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
