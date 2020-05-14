@@ -42,7 +42,7 @@ public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: S
         self.serviceInstances = configuration.serviceInstances
     }
 
-    public func lookup(service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
+    public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
         let semaphore = DispatchSemaphore(value: 0)
         var result: Result<[Instance], Error>?
 
@@ -71,17 +71,17 @@ public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: S
         callback(_result)
     }
 
-    public mutating func subscribe(service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
+    public mutating func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
         // Call `lookup` once and send result to subscriber
-        self.lookup(service: service, callback: handler)
+        self.lookup(service, callback: handler)
         // Add subscriber to list
         var subscribers = self.serviceSubscribers.removeValue(forKey: service) ?? [(Result<[Instance], Error>) -> Void]()
         subscribers.append(handler)
         self.serviceSubscribers[service] = subscribers
     }
 
-    /// Registers `service` and its `instances`.
-    public mutating func register(service: Service, instances: [Instance]) {
+    /// Registers a service and its `instances`.
+    public mutating func register(_ service: Service, instances: [Instance]) {
         let previousInstances = self.serviceInstances[service]
         self.serviceInstances[service] = instances
 

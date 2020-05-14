@@ -25,7 +25,7 @@ class PollingServiceDiscoveryTests: XCTestCase {
         let counterA = SDAtomic<Int>(0)
         let counterB = SDAtomic<Int>(0)
 
-        serviceDiscovery.subscribe(service: "test-service") { result in
+        serviceDiscovery.subscribe(to: "test-service") { result in
             let counter = serviceDiscovery.counter
 
             switch result {
@@ -82,7 +82,7 @@ private class MockPollingServiceDiscovery: PollingServiceDiscovery {
 
     var counter: Int = 0
 
-    func lookup(service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void) {
+    func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void) {
         self.counter += 1
 
         if self.counter % 3 == 0 {

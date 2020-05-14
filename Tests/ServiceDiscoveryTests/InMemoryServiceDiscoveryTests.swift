@@ -92,7 +92,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        serviceDiscovery.subscribe(service: barService) { result in
+        serviceDiscovery.subscribe(to: barService) { result in
             _ = resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
@@ -113,7 +113,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
             }
         }
 
-        serviceDiscovery.register(service: barService, instances: barInstances)
+        serviceDiscovery.register(barService, instances: barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
@@ -124,7 +124,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let semaphore = DispatchSemaphore(value: 0)
         var result: Result<[Instance], Error>?
 
-        serviceDiscovery.lookup(service: service) {
+        serviceDiscovery.lookup(service) {
             result = $0
             semaphore.signal()
         }

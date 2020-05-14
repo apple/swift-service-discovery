@@ -32,16 +32,16 @@ public protocol ServiceDiscovery {
     /// Indicates if `shutdown` has been issued and therefore all subscriptions are cancelled.
     var isShutdown: Bool { get }
 
-    /// Performs a lookup for the `service`'s instances. The result will be sent to `callback`.
+    /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
     ///
     /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
-    func lookup(service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
+    func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
 
-    /// Subscribes to receive `service`'s instances whenever they change.
+    /// Subscribes to receive a service's instances whenever they change.
     ///
-    /// `lookup` will be called once and its results sent to `handler` when this method is first invoked. Subsequently, `handler`
-    /// will only receive updates when the `service`'s instances change.
-    mutating func subscribe(service: Service, handler: @escaping (Result<[Instance], Error>) -> Void)
+    /// The service's current list of instances will be sent to `handler` when this method is first invoked. Subsequently,
+    /// `handler` will only receive updates when the `service`'s instances change.
+    mutating func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void)
 
     /// Performs clean up steps if any before shutting down.
     func shutdown() throws
@@ -84,13 +84,13 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
 
 /// Polls for service instance updates at fixed interval.
 public protocol PollingServiceDiscovery: ServiceDiscovery, AnyObject {
-    /// Poll interval for `subscribe`.
+    /// The frequency at which `subscribe` will poll for updates.
     var pollInterval: DispatchTimeInterval { get }
 }
 
 extension PollingServiceDiscovery {
-    public func subscribe(service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
-        self.lookup(service: service, deadline: nil) { result in
+    public func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
+        self.lookup(service, deadline: nil) { result in
             switch result {
             case .success(let instances):
                 handler(.success(instances))
@@ -106,7 +106,7 @@ extension PollingServiceDiscovery {
             if let self = self {
                 guard !self.isShutdown else { return }
 
-                self.lookup(service: service, deadline: nil) { result in
+                self.lookup(service, deadline: nil) { result in
                     // Subsequent lookups should only notify if instances have changed
                     switch result {
                     case .success(let instances):
