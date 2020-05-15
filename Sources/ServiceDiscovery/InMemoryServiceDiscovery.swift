@@ -44,31 +44,25 @@ public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: S
 
     public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
         let semaphore = DispatchSemaphore(value: 0)
-        var result: Result<[Instance], Error>?
+        var result: Result<[Instance], Error>! // !-safe because if-else block always set `result` otherwise the operation has timed out
 
         DispatchQueue.global().async {
-            guard var instances = self.serviceInstances[service] else {
+            if var instances = self.serviceInstances[service] {
+                if let instancesToExclude = self.instancesToExclude {
+                    instances.removeAll { instancesToExclude.contains($0) }
+                }
+                result = .success(instances)
+            } else {
                 result = .failure(LookupError.unknownService)
-                semaphore.signal()
-                return
             }
-
-            if let instancesToExclude = self.instancesToExclude {
-                instances.removeAll { instancesToExclude.contains($0) }
-            }
-
-            result = .success(instances)
             semaphore.signal()
         }
 
-        _ = semaphore.wait(timeout: deadline ?? DispatchTime.now() + self.defaultLookupTimeout)
-
-        guard let _result = result else {
-            callback(.failure(LookupError.timedOut))
-            return
+        if semaphore.wait(timeout: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) == .timedOut {
+            result = .failure(LookupError.timedOut)
         }
 
-        callback(_result)
+        callback(result)
     }
 
     public mutating func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
