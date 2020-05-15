@@ -10,8 +10,8 @@ services:
 
   test:
     image: swift-service-discovery:18.04-5.3
-    environment:
-      - SANITIZER_ARG=--sanitize=thread
+    environment: []
+      #- SANITIZER_ARG=--sanitize=thread
 
   shell:
     image: swift-service-discovery:18.04-5.3
