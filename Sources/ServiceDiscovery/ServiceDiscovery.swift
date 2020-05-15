@@ -83,7 +83,7 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
 // MARK: - Polling service discovery protocol
 
 /// Polls for service instance updates at fixed interval.
-public protocol PollingServiceDiscovery: ServiceDiscovery, AnyObject {
+public protocol PollingServiceDiscovery: ServiceDiscovery {
     /// The frequency at which `subscribe` will poll for updates.
     var pollInterval: DispatchTimeInterval { get }
 }
@@ -102,21 +102,19 @@ extension PollingServiceDiscovery {
     }
 
     private func _pollAndNotifyOnChange(service: Service, previousInstances: [Instance]?, onChange: @escaping (Result<[Instance], Error>) -> Void) {
-        DispatchQueue.global().asyncAfter(deadline: DispatchTime.now() + self.pollInterval) { [weak self] in
-            if let self = self {
-                guard !self.isShutdown else { return }
+        DispatchQueue.global().asyncAfter(deadline: DispatchTime.now() + self.pollInterval) {
+            guard !self.isShutdown else { return }
 
-                self.lookup(service, deadline: nil) { result in
-                    // Subsequent lookups should only notify if instances have changed
-                    switch result {
-                    case .success(let instances):
-                        if previousInstances != instances {
-                            onChange(.success(instances))
-                        }
-                        self._pollAndNotifyOnChange(service: service, previousInstances: instances, onChange: onChange)
-                    case .failure:
-                        self._pollAndNotifyOnChange(service: service, previousInstances: previousInstances, onChange: onChange)
+            self.lookup(service, deadline: nil) { result in
+                // Subsequent lookups should only notify if instances have changed
+                switch result {
+                case .success(let instances):
+                    if previousInstances != instances {
+                        onChange(.success(instances))
                     }
+                    self._pollAndNotifyOnChange(service: service, previousInstances: instances, onChange: onChange)
+                case .failure:
+                    self._pollAndNotifyOnChange(service: service, previousInstances: previousInstances, onChange: onChange)
                 }
             }
         }
