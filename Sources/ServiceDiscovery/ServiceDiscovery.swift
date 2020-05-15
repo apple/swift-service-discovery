@@ -91,9 +91,10 @@ public protocol PollingServiceDiscovery: ServiceDiscovery {
 extension PollingServiceDiscovery {
     public func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
         self.lookup(service, deadline: nil) { result in
+            handler(result)
+
             switch result {
             case .success(let instances):
-                handler(.success(instances))
                 self._pollAndNotifyOnChange(service: service, previousInstances: instances, onChange: handler)
             case .failure:
                 self._pollAndNotifyOnChange(service: service, previousInstances: nil, onChange: handler)
