@@ -31,12 +31,6 @@ public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: S
         self.configuration.instancesToExclude
     }
 
-    private let _isShutdown = SDAtomic<Bool>(false)
-
-    public var isShutdown: Bool {
-        self._isShutdown.load()
-    }
-
     public init(configuration: Configuration) {
         self.configuration = configuration
         self.serviceInstances = configuration.serviceInstances
@@ -79,14 +73,10 @@ public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: S
         let previousInstances = self.serviceInstances[service]
         self.serviceInstances[service] = instances
 
-        if !self.isShutdown, instances != previousInstances, let subscribers = self.serviceSubscribers[service] {
+        if instances != previousInstances, let subscribers = self.serviceSubscribers[service] {
             // Notify subscribers whenever instances change
             subscribers.forEach { $0(.success(instances)) }
         }
-    }
-
-    public func shutdown() {
-        self._isShutdown.store(true)
     }
 }
 

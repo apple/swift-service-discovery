@@ -37,7 +37,6 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         configuration.register(service: barService, instances: barInstances)
 
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
-        defer { serviceDiscovery.shutdown() }
 
         let fooResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: fooService)
         guard case .success(let _fooInstances) = fooResult else {
@@ -59,7 +58,6 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
         let serviceDiscovery = InMemoryServiceDiscovery<Service, Instance>(configuration: configuration)
-        defer { serviceDiscovery.shutdown() }
 
         let result = try ensureResult(serviceDiscovery: serviceDiscovery, service: unknownService)
         guard case .failure(let error) = result else {
@@ -84,7 +82,6 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: fooInstances])
         var serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
-        defer { serviceDiscovery.shutdown() }
 
         let semaphore = DispatchSemaphore(value: 0)
         let resultCounter = SDAtomic<Int>(0)

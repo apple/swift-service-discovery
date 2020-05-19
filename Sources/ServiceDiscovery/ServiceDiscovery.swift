@@ -27,9 +27,6 @@ public protocol ServiceDiscovery {
     /// Instances to exclude from lookup results.
     var instancesToExclude: Set<Instance>? { get }
 
-    /// Indicates if `shutdown` has been issued and therefore all subscriptions are cancelled.
-    var isShutdown: Bool { get }
-
     /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
     ///
     /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
@@ -40,9 +37,6 @@ public protocol ServiceDiscovery {
     /// The service's current list of instances will be sent to `handler` when this method is first invoked. Subsequently,
     /// `handler` will only receive updates when the `service`'s instances change.
     mutating func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void)
-
-    /// Performs clean up steps if any before shutting down.
-    mutating func shutdown() throws
 }
 
 /// Errors that might occur during lookup.
