@@ -16,7 +16,7 @@ import Dispatch
 import ServiceDiscoveryHelpers
 
 /// Provides lookup for service instances that are stored in-memory.
-public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
+public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
     private let configuration: Configuration
 
     private var serviceInstances: [Service: [Instance]]
@@ -59,7 +59,7 @@ public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: S
         callback(result)
     }
 
-    public mutating func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
+    public func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
         // Call `lookup` once and send result to subscriber
         self.lookup(service, callback: handler)
         // Add subscriber to list
@@ -69,7 +69,7 @@ public struct InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: S
     }
 
     /// Registers a service and its `instances`.
-    public mutating func register(_ service: Service, instances: [Instance]) {
+    public func register(_ service: Service, instances: [Instance]) {
         let previousInstances = self.serviceInstances[service]
         self.serviceInstances[service] = instances
 

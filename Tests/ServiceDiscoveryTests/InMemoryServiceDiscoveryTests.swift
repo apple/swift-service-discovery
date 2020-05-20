@@ -21,36 +21,36 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
     typealias Service = String
     typealias Instance = HostPort
 
+    let fooService = "fooService"
+    let fooInstances = [
+        HostPort(host: "localhost", port: 7001),
+    ]
+
+    let barService = "bar-service"
+    let barInstances = [
+        HostPort(host: "localhost", port: 9001),
+        HostPort(host: "localhost", port: 9002),
+    ]
+
     func test_lookup() throws {
-        let fooService = "fooService"
-        let fooInstances = [
-            HostPort(host: "localhost", port: 7001),
-        ]
-
-        let barService = "bar-service"
-        let barInstances = [
-            HostPort(host: "localhost", port: 9001),
-            HostPort(host: "localhost", port: 9002),
-        ]
-
-        var configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: fooInstances])
-        configuration.register(service: barService, instances: barInstances)
+        var configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        configuration.register(service: self.barService, instances: self.barInstances)
 
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
 
         let fooResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: fooService)
         guard case .success(let _fooInstances) = fooResult else {
-            return XCTFail("Failed to lookup instances for service[\(fooService)]")
+            return XCTFail("Failed to lookup instances for service[\(self.fooService)]")
         }
-        XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(fooService)] to have 1 instance, got \(_fooInstances.count)")
-        XCTAssertEqual(_fooInstances, fooInstances, "Expected service[\(fooService)] to have instances \(fooInstances), got \(_fooInstances)")
+        XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+        XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
 
         let barResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: barService)
         guard case .success(let _barInstances) = barResult else {
-            return XCTFail("Failed to lookup instances for service[\(barService)]")
+            return XCTFail("Failed to lookup instances for service[\(self.barService)]")
         }
-        XCTAssertEqual(_barInstances.count, 2, "Expected service[\(barService)] to have 2 instances, got \(_barInstances.count)")
-        XCTAssertEqual(_barInstances, barInstances, "Expected service[\(barService)] to have instances \(barInstances), got \(_barInstances)")
+        XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.barService)] to have 2 instances, got \(_barInstances.count)")
+        XCTAssertEqual(_barInstances, self.barInstances, "Expected service[\(self.barService)] to have instances \(self.barInstances), got \(_barInstances)")
     }
 
     func test_lookup_errorIfServiceUnknown() throws {
@@ -69,19 +69,8 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
     }
 
     func test_subscribe() throws {
-        let fooService = "fooService"
-        let fooInstances = [
-            HostPort(host: "localhost", port: 7001),
-        ]
-
-        let barService = "bar-service"
-        let barInstances = [
-            HostPort(host: "localhost", port: 9001),
-            HostPort(host: "localhost", port: 9002),
-        ]
-
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: fooInstances])
-        var serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
 
         let semaphore = DispatchSemaphore(value: 0)
         let resultCounter = SDAtomic<Int>(0)
@@ -89,7 +78,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        serviceDiscovery.subscribe(to: barService) { result in
+        serviceDiscovery.subscribe(to: self.barService) { result in
             _ = resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
@@ -99,18 +88,18 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
             switch result {
             case .failure(let error):
                 guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                    return XCTFail("Expected the first result to be LookupError.unknownService since \(barService) is not registered, got \(error)")
+                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
                 }
             case .success(let instances):
                 guard resultCounter.load() == 2 else {
                     return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
                 }
-                XCTAssertEqual(instances, barInstances, "Expected instances of \(barService) to be \(barInstances), got \(instances)")
+                XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
                 semaphore.signal()
             }
         }
 
-        serviceDiscovery.register(barService, instances: barInstances)
+        serviceDiscovery.register(self.barService, instances: self.barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
