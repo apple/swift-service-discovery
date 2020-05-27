@@ -19,8 +19,6 @@ import Dispatch
 public struct ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
     private let _underlying: Any
 
-    private let _type: Any.Type
-
     private let _defaultLookupTimeout: () -> DispatchTimeInterval
 
     private let _instancesToExclude: () -> Set<Instance>?
@@ -40,7 +38,6 @@ public struct ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Servic
     public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl)
         where ServiceDiscoveryImpl.Service == Service, ServiceDiscoveryImpl.Instance == Instance {
         self._underlying = serviceDiscovery
-        self._type = ServiceDiscoveryImpl.self
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
         self._instancesToExclude = { serviceDiscovery.instancesToExclude }
 
@@ -61,9 +58,9 @@ public struct ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Servic
     ///
     /// - Throws: ` TypeErasedServiceDiscoveryError.typeMismatch` when the underlying
     ///           `ServiceDiscovery` instance is not of type `ServiceDiscoveryImpl`.
-    public func unwrapAs<ServiceDiscoveryImpl: ServiceDiscovery>(_ type: ServiceDiscoveryImpl.Type) throws -> ServiceDiscoveryImpl {
+    public func unwrapAs<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscoveryType: ServiceDiscoveryImpl.Type) throws -> ServiceDiscoveryImpl {
         guard let unwrapped = self._underlying as? ServiceDiscoveryImpl else {
-            throw TypeErasedServiceDiscoveryError.typeMismatch(description: "Cannot unwrap [\(self._type))] as [\(ServiceDiscoveryImpl.self)]")
+            throw TypeErasedServiceDiscoveryError.typeMismatch(description: "Cannot unwrap [\(type(of: self._underlying)))] as [\(ServiceDiscoveryImpl.self)]")
         }
         return unwrapped
     }
@@ -73,8 +70,6 @@ public struct ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Servic
 
 public struct AnyServiceDiscovery: ServiceDiscovery {
     private let _underlying: Any
-
-    private let _type: Any.Type
 
     private let _defaultLookupTimeout: () -> DispatchTimeInterval
 
@@ -94,7 +89,6 @@ public struct AnyServiceDiscovery: ServiceDiscovery {
 
     public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl) {
         self._underlying = serviceDiscovery
-        self._type = ServiceDiscoveryImpl.self
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
         self._instancesToExclude = { serviceDiscovery.instancesToExclude }
 
@@ -172,9 +166,9 @@ public struct AnyServiceDiscovery: ServiceDiscovery {
     ///
     /// - Throws: ` TypeErasedServiceDiscoveryError.typeMismatch` when the underlying
     ///           `ServiceDiscovery` instance is not of type `ServiceDiscoveryImpl`.
-    public func unwrapAs<ServiceDiscoveryImpl: ServiceDiscovery>(_ type: ServiceDiscoveryImpl.Type) throws -> ServiceDiscoveryImpl {
+    public func unwrapAs<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscoveryType: ServiceDiscoveryImpl.Type) throws -> ServiceDiscoveryImpl {
         guard let unwrapped = self._underlying as? ServiceDiscoveryImpl else {
-            throw TypeErasedServiceDiscoveryError.typeMismatch(description: "Cannot unwrap [\(self._type)] as [\(ServiceDiscoveryImpl.self)]")
+            throw TypeErasedServiceDiscoveryError.typeMismatch(description: "Cannot unwrap [\(type(of: self._underlying))] as [\(ServiceDiscoveryImpl.self)]")
         }
         return unwrapped
     }
