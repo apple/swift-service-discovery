@@ -75,10 +75,13 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let semaphore = DispatchSemaphore(value: 0)
         let resultCounter = SDAtomic<Int>(0)
 
+        let onTerminateInvoked = SDAtomic<Bool>(false)
+        let onTerminate: () -> Void = { onTerminateInvoked.store(true) }
+
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        serviceDiscovery.subscribe(to: self.barService) { result in
+        _ = serviceDiscovery.subscribe(to: self.barService, onTerminate: onTerminate) { result in
             _ = resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
@@ -104,6 +107,70 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
         XCTAssertEqual(resultCounter.load(), 2, "Expected to receive result 2 times, got \(resultCounter.load())")
+
+        // Verify `onTerminate` gets invoked on `shutdown`
+        serviceDiscovery.shutdown()
+        XCTAssertTrue(onTerminateInvoked.load(), "Expected onTerminate to be invoked")
+    }
+
+    func test_subscribe_cancel() throws {
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let resultCounter1 = SDAtomic<Int>(0)
+        let resultCounter2 = SDAtomic<Int>(0)
+
+        // Two results are expected:
+        // Result #1: LookupError.unknownService because bar-service is not registered
+        // Result #2: Later we register bar-service and that should notify the subscribers
+        _ = serviceDiscovery.subscribe(to: self.barService, onTerminate: {}) { result in
+            _ = resultCounter1.add(1)
+
+            guard resultCounter1.load() <= 2 else {
+                return XCTFail("Expected to receive result 2 times only")
+            }
+
+            switch result {
+            case .failure(let error):
+                guard resultCounter1.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                }
+            case .success(let instances):
+                guard resultCounter1.load() == 2 else {
+                    return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter1.load()) got \(instances)")
+                }
+                XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                semaphore.signal()
+            }
+        }
+
+        // This subscriber receives Result #1 only because we cancel subscription before Result #2 is triggered
+        let token = serviceDiscovery.subscribe(to: self.barService, onTerminate: {}) { result in
+            _ = resultCounter2.add(1)
+
+            guard resultCounter2.load() <= 1 else {
+                return XCTFail("Expected to receive result 1 time only")
+            }
+
+            switch result {
+            case .failure(let error):
+                guard resultCounter2.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                }
+            case .success:
+                return XCTFail("Does not expect to receive instances list")
+            }
+        }
+
+        token.cancel()
+        // Only subscriber 1 will receive this change
+        serviceDiscovery.register(self.barService, instances: self.barInstances)
+
+        _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
+
+        XCTAssertEqual(resultCounter1.load(), 2, "Expected subscriber #1 to receive result 2 times, got \(resultCounter1.load())")
+        XCTAssertEqual(resultCounter2.load(), 1, "Expected subscriber #2 to receive result 1 time, got \(resultCounter2.load())")
     }
 
     private func ensureResult(serviceDiscovery: InMemoryServiceDiscovery<Service, Instance>, service: Service) throws -> Result<[Instance], Error> {

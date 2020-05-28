@@ -50,11 +50,14 @@ serviceDiscovery.lookup(service) { result in
 To fetch the current list of instances (where `result` is `Result<[Instance], Error>`) AND subscribe to future changes:
 
 ```swift
-serviceDiscovery.subscribe(to: service) { result in
+let token = serviceDiscovery.subscribe(to: service, onTerminate: {}) { result in
     // This closure gets invoked once at the beginning and subsequently each time a change occurs
     ...
 }
 ```
+
+`subscribe` returns a `SubscriptionToken` that you can use to cancel the subscription later on. `onTerminate` is a closure that
+gets invoked when the subscription gets terminated (e.g., when the service discovery instance shuts down).
 
 ## Implementing a service discovery backend
 
@@ -82,6 +85,11 @@ To become a compatible service discovery backend that all SwiftServiceDiscovery 
 /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
 ///
 /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
+///
+/// - Parameters:
+///   - service: The service to lookup
+///   - deadline: Lookup is considered to have timed out if it does not complete by this time
+///   - callback: The closure to receive lookup result
 func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
 ```
 
@@ -96,15 +104,26 @@ The backend implementation should impose a deadline on when the operation will c
 ///
 /// The service's current list of instances will be sent to `handler` when this method is first invoked. Subsequently,
 /// `handler` will only receive updates when the `service`'s instances change.
-mutating func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void)
+///
+/// - Parameters:
+///   - service: The service to subscribe to
+///   - onTerminate: The closure to invoke when the subscription terminates
+///   - handler: The closure to receive update
+///
+/// -  Returns: A `SubscriptionToken` instance that can be used to cancel the subscription in the future.
+func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> SubscriptionToken
 ```
 
 `subscribe` "pushes" service instances to the `handler`. The backend implementation is expected to call `handler`:
 
 - When `subscribe` is first invoked, the caller should receive the current list of instances for the given service. This is essentially the `lookup` result.
-- Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must notify `handler` when the instances list becomes different from the previous result. 
+- Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must notify `handler` when the instances list becomes different from the previous result.
 
-If all that a backend needs to do is perform `lookup` at fixed interval (e.g., run a DNS query), you may consider conforming to the `PollingServiceDiscovery` protocol which provides default implementation for `subscribe`.
+A new `SubscriptionToken` must be created for each `subscribe` request, and when the token's `isCanceled` is `true`, the subscription has been canceled and the backend implementation should cease calling the corresponding `handler`.
+
+The backend implementation must also notify via `onTerminate` when it has to terminate subscription for any reason (e.g., the service discovery instance is shutting down), so that the subscriber can submit another `subscribe` request.
+
+---
 
 Do not hesitate to get in touch, over on https://forums.swift.org/c/server.
 

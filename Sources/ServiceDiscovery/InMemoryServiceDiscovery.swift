@@ -21,7 +21,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
     private var serviceInstances: [Service: [Instance]]
 
-    private var serviceSubscribers: [Service: [(Result<[Instance], Error>) -> Void]] = [:]
+    private var serviceSubscriptions: [Service: [Subscription]] = [:]
 
     public var defaultLookupTimeout: DispatchTimeInterval {
         self.configuration.defaultLookupTimeout
@@ -29,6 +29,12 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
     public var instancesToExclude: Set<Instance>? {
         self.configuration.instancesToExclude
+    }
+
+    private let _isShutdown = SDAtomic<Bool>(false)
+
+    public var isShutdown: Bool {
+        self._isShutdown.load()
     }
 
     public init(configuration: Configuration) {
@@ -59,13 +65,19 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         callback(result)
     }
 
-    public func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
+    public func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> SubscriptionToken {
         // Call `lookup` once and send result to subscriber
         self.lookup(service, callback: handler)
-        // Add subscriber to list
-        var subscribers = self.serviceSubscribers.removeValue(forKey: service) ?? [(Result<[Instance], Error>) -> Void]()
-        subscribers.append(handler)
-        self.serviceSubscribers[service] = subscribers
+
+        let token = SubscriptionToken()
+        let subscription = Subscription(handler: handler, onTerminate: onTerminate, token: token)
+
+        // Save the subscription
+        var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
+        subscriptions.append(subscription)
+        self.serviceSubscriptions[service] = subscriptions
+
+        return token
     }
 
     /// Registers a service and its `instances`.
@@ -73,10 +85,27 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         let previousInstances = self.serviceInstances[service]
         self.serviceInstances[service] = instances
 
-        if instances != previousInstances, let subscribers = self.serviceSubscribers[service] {
+        if !self.isShutdown, instances != previousInstances, let subscriptions = self.serviceSubscriptions[service] {
             // Notify subscribers whenever instances change
-            subscribers.forEach { $0(.success(instances)) }
+            subscriptions
+                .filter { !$0.token.isCanceled }
+                .forEach { $0.handler(.success(instances)) }
         }
+    }
+
+    public func shutdown() {
+        self._isShutdown.store(true)
+        self.serviceSubscriptions.values.forEach { subscriptions in
+            subscriptions
+                .filter { !$0.token.isCanceled }
+                .forEach { $0.onTerminate() }
+        }
+    }
+
+    private struct Subscription {
+        let handler: (Result<[Instance], Error>) -> Void
+        let onTerminate: () -> Void
+        let token: SubscriptionToken
     }
 }
 

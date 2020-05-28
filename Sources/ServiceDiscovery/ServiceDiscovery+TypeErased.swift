@@ -16,7 +16,7 @@ import Dispatch
 
 // MARK: - Generic wrapper for `ServiceDiscovery` instance
 
-public struct ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
+public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
     private let _underlying: Any
 
     private let _defaultLookupTimeout: () -> DispatchTimeInterval
@@ -25,7 +25,7 @@ public struct ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Servic
 
     private let _lookup: (Service, DispatchTime?, @escaping (Result<[Instance], Error>) -> Void) -> Void
 
-    private let _subscribe: (Service, @escaping (Result<[Instance], Error>) -> Void) -> Void
+    private let _subscribe: (Service, @escaping () -> Void, @escaping (Result<[Instance], Error>) -> Void) -> SubscriptionToken
 
     public var defaultLookupTimeout: DispatchTimeInterval {
         self._defaultLookupTimeout()
@@ -41,17 +41,20 @@ public struct ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Servic
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
         self._instancesToExclude = { serviceDiscovery.instancesToExclude }
 
-        var serviceDiscovery = serviceDiscovery
-        self._lookup = { service, deadline, callback in serviceDiscovery.lookup(service, deadline: deadline, callback: callback) }
-        self._subscribe = { service, handler in serviceDiscovery.subscribe(to: service, handler: handler) }
+        self._lookup = { service, deadline, callback in
+            serviceDiscovery.lookup(service, deadline: deadline, callback: callback)
+        }
+        self._subscribe = { service, onTerminate, handler in
+            serviceDiscovery.subscribe(to: service, onTerminate: onTerminate, handler: handler)
+        }
     }
 
     public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
         self._lookup(service, deadline, callback)
     }
 
-    public func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
-        self._subscribe(service, handler)
+    public func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> SubscriptionToken {
+        self._subscribe(service, onTerminate, handler)
     }
 
     /// Unwraps the underlying `ServiceDiscovery` instance as `ServiceDiscoveryImpl` type.
@@ -68,7 +71,7 @@ public struct ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Servic
 
 // MARK: - Type-erased wrapper for `ServiceDiscovery` instance
 
-public struct AnyServiceDiscovery: ServiceDiscovery {
+public class AnyServiceDiscovery: ServiceDiscovery {
     private let _underlying: Any
 
     private let _defaultLookupTimeout: () -> DispatchTimeInterval
@@ -77,7 +80,7 @@ public struct AnyServiceDiscovery: ServiceDiscovery {
 
     private let _lookup: (AnyHashable, DispatchTime?, @escaping (Result<[AnyHashable], Error>) -> Void) -> Void
 
-    private let _subscribe: (AnyHashable, @escaping (Result<[AnyHashable], Error>) -> Void) -> Void
+    private let _subscribe: (AnyHashable, @escaping () -> Void, @escaping (Result<[AnyHashable], Error>) -> Void) -> SubscriptionToken
 
     public var defaultLookupTimeout: DispatchTimeInterval {
         self._defaultLookupTimeout()
@@ -92,32 +95,32 @@ public struct AnyServiceDiscovery: ServiceDiscovery {
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
         self._instancesToExclude = { serviceDiscovery.instancesToExclude }
 
-        var serviceDiscovery = serviceDiscovery
         self._lookup = { anyService, deadline, callback in
             guard let service = anyService.base as? ServiceDiscoveryImpl.Service else {
-                callback(.failure(TypeErasedServiceDiscoveryError.typeMismatch(description: "Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService.base))")))
-                return
+                preconditionFailure("Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService.base))")
             }
             serviceDiscovery.lookup(service, deadline: deadline) { result in
                 callback(result.map { $0.map(AnyHashable.init) })
             }
         }
-        self._subscribe = { anyService, handler in
+        self._subscribe = { anyService, onTerminate, handler in
             guard let service = anyService.base as? ServiceDiscoveryImpl.Service else {
-                handler(.failure(TypeErasedServiceDiscoveryError.typeMismatch(description: "Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService.base))")))
-                return
+                preconditionFailure("Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService.base))")
             }
-            serviceDiscovery.subscribe(to: service) { result in
+            return serviceDiscovery.subscribe(to: service, onTerminate: onTerminate) { result in
                 handler(result.map { $0.map(AnyHashable.init) })
             }
         }
     }
 
+    /// See `ServiceDiscovery.lookup`.
+    ///
+    /// - Warning: If `service` type does not match the underlying `ServiceDiscovery`'s, it would result in a failure.
     public func lookup(_ service: AnyHashable, deadline: DispatchTime? = nil, callback: @escaping (Result<[AnyHashable], Error>) -> Void) {
         self._lookup(service, deadline, callback)
     }
 
-    /// Performs a lookup for the given service's instances, using the underlying `ServiceDiscovery` instance. The result will be sent to `callback`.
+    /// See `lookup`.
     ///
     /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
     public func lookupAndUnwrap<Service, Instance>(
@@ -130,21 +133,22 @@ public struct AnyServiceDiscovery: ServiceDiscovery {
         }
     }
 
-    public func subscribe(to service: AnyHashable, handler: @escaping (Result<[AnyHashable], Error>) -> Void) {
-        self._subscribe(service, handler)
+    /// See `ServiceDiscovery.subscribe`.
+    ///
+    /// - Warning: If `service` type does not match the underlying `ServiceDiscovery`'s, it would result in a failure.
+    public func subscribe(to service: AnyHashable, onTerminate: @escaping () -> Void, handler: @escaping (Result<[AnyHashable], Error>) -> Void) -> SubscriptionToken {
+        self._subscribe(service, onTerminate, handler)
     }
 
-    /// Subscribes to receive a service's instances whenever they change, using the underlying `ServiceDiscovery` instance.
-    ///
-    /// The service's current list of instances will be sent to `handler` when this method is first invoked. Subsequently,
-    /// `handler` will only receive updates when the `service`'s instances change.
+    /// See `subscribe`.
     ///
     /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
     public func subscribeAndUnwrap<Service, Instance>(
         to service: Service,
+        onTerminate: @escaping () -> Void,
         handler: @escaping (Result<[Instance], Error>) -> Void
-    ) where Service: Hashable, Instance: Hashable {
-        self._subscribe(AnyHashable(service)) { result in
+    ) -> SubscriptionToken where Service: Hashable, Instance: Hashable {
+        self._subscribe(AnyHashable(service), onTerminate) { result in
             handler(self.transform(result))
         }
     }

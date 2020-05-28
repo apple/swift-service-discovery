@@ -13,6 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
+import ServiceDiscoveryHelpers
+
+// MARK: - Service discovery protocol
 
 /// Provides service instances lookup.
 public protocol ServiceDiscovery {
@@ -30,13 +33,25 @@ public protocol ServiceDiscovery {
     /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
     ///
     /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
-    mutating func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
+    ///
+    /// - Parameters:
+    ///   - service: The service to lookup
+    ///   - deadline: Lookup is considered to have timed out if it does not complete by this time
+    ///   - callback: The closure to receive lookup result
+    func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
     /// The service's current list of instances will be sent to `handler` when this method is first invoked. Subsequently,
     /// `handler` will only receive updates when the `service`'s instances change.
-    mutating func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void)
+    ///
+    /// - Parameters:
+    ///   - service: The service to subscribe to
+    ///   - onTerminate: The closure to invoke when the subscription terminates
+    ///   - handler: The closure to receive update
+    ///
+    /// -  Returns: A `SubscriptionToken` instance that can be used to cancel the subscription in the future.
+    func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> SubscriptionToken
 }
 
 /// Errors that might occur during lookup.
@@ -70,4 +85,26 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
 
     /// Lookup has taken longer than allowed and thus has timed out.
     public static let timedOut = LookupError(type: .timedOut)
+}
+
+// MARK: - Subscription
+
+/// Enables cancellation of service discovery subscription.
+public class SubscriptionToken {
+    private let _isCanceled: SDAtomic<Bool>
+
+    /// Returns  `true` if  the subscription has been canceled.
+    public var isCanceled: Bool {
+        self._isCanceled.load()
+    }
+
+    /// Creates a new token.
+    public init() {
+        self._isCanceled = SDAtomic<Bool>(false)
+    }
+
+    /// Cancels the subscription.
+    public func cancel() {
+        self._isCanceled.store(true)
+    }
 }
