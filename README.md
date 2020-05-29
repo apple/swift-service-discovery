@@ -56,15 +56,16 @@ let cancellationToken = serviceDiscovery.subscribe(
         // This closure gets invoked once at the beginning and subsequently each time a change occurs
         ...
     },
-    onComplete: {
+    onComplete: { completionReason in
         // This closure gets invoked when the subscription completes
         ...
     }
 }
 ```
 
-`subscribe` returns a `CancellationToken` that you can use to cancel thesubscription later on. `onComplete` is a closure that
-gets invoked when the subscription ends (e.g., when the service discovery instance shuts down).
+`subscribe` returns a `CancellationToken` that you can use to cancel the subscription later on. `onComplete` is a closure that
+gets invoked when the subscription ends (e.g., when the service discovery instance shuts down) or canceled through the 
+`CancellationToken`. `CompletionReason` can be used to distinguish the cause.
 
 ## Implementing a service discovery backend
 
@@ -115,20 +116,21 @@ The backend implementation should impose a deadline on when the operation will c
 /// - Parameters:
 ///   - service: The service to subscribe to
 ///   - onNext: The closure to receive update result
-///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.)
+///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
+///                 including cancellation requested through `CancellationToken`.
 ///
 /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
-func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void) -> CancellationToken
+func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping (CompletionReason) -> Void) -> CancellationToken
 ```
 
-`subscribe` "pushes" service instances to the `handler`. The backend implementation is expected to call `handler`:
+`subscribe` "pushes" service instances to the `onNext`. The backend implementation is expected to call `onNext`:
 
 - When `subscribe` is first invoked, the caller should receive the current list of instances for the given service. This is essentially the `lookup` result.
-- Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must notify `handler` when the instances list becomes different from the previous result.
+- Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must notify `onNext` when the instances list becomes different from the previous result.
 
-A new `CancellationToken` must be created for each `subscribe` request, and when the token's `isCanceled` is `true`, the subscription has been canceled and the backend implementation should cease calling the corresponding `handler`.
+A new `CancellationToken` must be created for each `subscribe` request. When the token's `isCanceled` is `true`, the subscription has been canceled and the backend implementation should cease calling the corresponding `onNext`.
 
-The backend implementation must also notify via `onComplete` when it has to end subscription for any reason (e.g., the service discovery instance is shutting down), so that the subscriber can submit another `subscribe` request if needed.
+The backend implementation must also notify via `onComplete` when the subscription ends for any reason (e.g., the service discovery instance is shutting down or cancellation requested through `CancellationToken`), so that the subscriber can submit another `subscribe` request if needed.
 
 ---
 

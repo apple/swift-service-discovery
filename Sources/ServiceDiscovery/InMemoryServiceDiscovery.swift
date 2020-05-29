@@ -77,7 +77,6 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         onComplete: @escaping (CompletionReason) -> Void = { _ in }
     ) -> CancellationToken {
         guard !self.isShutdown else {
-            onNext(.failure(ServiceDiscoveryError.unavailable))
             onComplete(.serviceDiscoveryUnavailable)
             return CancellationToken(isCanceled: true)
         }
