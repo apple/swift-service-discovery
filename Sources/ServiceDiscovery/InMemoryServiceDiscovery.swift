@@ -66,7 +66,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     @discardableResult
-    public func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void) -> CancellationToken {
+    public func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void = {}) -> CancellationToken {
         // Call `lookup` once and send result to subscriber
         self.lookup(service, callback: onNext)
 

@@ -65,30 +65,26 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        boxedServiceDiscovery.subscribe(
-            to: self.barService,
-            onNext: { result in
-                _ = resultCounter.add(1)
+        boxedServiceDiscovery.subscribe(to: self.barService, onNext: { result in
+            _ = resultCounter.add(1)
 
-                guard resultCounter.load() <= 2 else {
-                    return XCTFail("Expected to receive result 2 times only")
-                }
+            guard resultCounter.load() <= 2 else {
+                return XCTFail("Expected to receive result 2 times only")
+            }
 
-                switch result {
-                case .failure(let error):
-                    guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
-                    }
-                case .success(let instances):
-                    guard resultCounter.load() == 2 else {
-                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
-                    }
-                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
-                    semaphore.signal()
+            switch result {
+            case .failure(let error):
+                guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
                 }
-            },
-            onComplete: {}
-        )
+            case .success(let instances):
+                guard resultCounter.load() == 2 else {
+                    return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
+                }
+                XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                semaphore.signal()
+            }
+        })
 
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 
@@ -138,30 +134,26 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        anyServiceDiscovery.subscribe(
-            to: self.barService,
-            onNext: { result in
-                _ = resultCounter.add(1)
+        anyServiceDiscovery.subscribe(to: self.barService, onNext: { result in
+            _ = resultCounter.add(1)
 
-                guard resultCounter.load() <= 2 else {
-                    return XCTFail("Expected to receive result 2 times only")
-                }
+            guard resultCounter.load() <= 2 else {
+                return XCTFail("Expected to receive result 2 times only")
+            }
 
-                switch result {
-                case .failure(let error):
-                    guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
-                    }
-                case .success(let instances):
-                    guard resultCounter.load() == 2 else {
-                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
-                    }
-                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
-                    semaphore.signal()
+            switch result {
+            case .failure(let error):
+                guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
                 }
-            },
-            onComplete: {}
-        )
+            case .success(let instances):
+                guard resultCounter.load() == 2 else {
+                    return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
+                }
+                XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                semaphore.signal()
+            }
+        })
 
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 

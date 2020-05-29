@@ -50,7 +50,7 @@ serviceDiscovery.lookup(service) { result in
 To fetch the current list of instances (where `result` is `Result<[Instance], Error>`) AND subscribe to future changes:
 
 ```swift
-let token = serviceDiscovery.subscribe(
+let cancellationToken = serviceDiscovery.subscribe(
     to: service, 
     onNext: { result in
         // This closure gets invoked once at the beginning and subsequently each time a change occurs
