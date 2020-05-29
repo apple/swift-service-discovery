@@ -66,19 +66,19 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     @discardableResult
-    public func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> CancellationToken {
+    public func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void) -> CancellationToken {
         // Call `lookup` once and send result to subscriber
-        self.lookup(service, callback: handler)
+        self.lookup(service, callback: onNext)
 
-        let token = CancellationToken()
-        let subscription = Subscription(handler: handler, onTerminate: onTerminate, token: token)
+        let cancellationToken = CancellationToken()
+        let subscription = Subscription(onNext: onNext, onComplete: onComplete, cancellationToken: cancellationToken)
 
         // Save the subscription
         var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
         subscriptions.append(subscription)
         self.serviceSubscriptions[service] = subscriptions
 
-        return token
+        return cancellationToken
     }
 
     /// Registers a service and its `instances`.
@@ -89,8 +89,8 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         if !self.isShutdown, instances != previousInstances, let subscriptions = self.serviceSubscriptions[service] {
             // Notify subscribers whenever instances change
             subscriptions
-                .filter { !$0.token.isCanceled }
-                .forEach { $0.handler(.success(instances)) }
+                .filter { !$0.cancellationToken.isCanceled }
+                .forEach { $0.onNext(.success(instances)) }
         }
     }
 
@@ -100,15 +100,15 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self._isShutdown.store(true)
         self.serviceSubscriptions.values.forEach { subscriptions in
             subscriptions
-                .filter { !$0.token.isCanceled }
-                .forEach { $0.onTerminate() }
+                .filter { !$0.cancellationToken.isCanceled }
+                .forEach { $0.onComplete() }
         }
     }
 
     private struct Subscription {
-        let handler: (Result<[Instance], Error>) -> Void
-        let onTerminate: () -> Void
-        let token: CancellationToken
+        let onNext: (Result<[Instance], Error>) -> Void
+        let onComplete: () -> Void
+        let cancellationToken: CancellationToken
     }
 }
 

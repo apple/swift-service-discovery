@@ -75,32 +75,36 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let semaphore = DispatchSemaphore(value: 0)
         let resultCounter = SDAtomic<Int>(0)
 
-        let onTerminateInvoked = SDAtomic<Bool>(false)
-        let onTerminate: () -> Void = { onTerminateInvoked.store(true) }
+        let onCompleteInvoked = SDAtomic<Bool>(false)
+        let onComplete: () -> Void = { onCompleteInvoked.store(true) }
 
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        serviceDiscovery.subscribe(to: self.barService, onTerminate: onTerminate) { result in
-            _ = resultCounter.add(1)
+        serviceDiscovery.subscribe(
+            to: self.barService,
+            onNext: { result in
+                _ = resultCounter.add(1)
 
-            guard resultCounter.load() <= 2 else {
-                return XCTFail("Expected to receive result 2 times only")
-            }
+                guard resultCounter.load() <= 2 else {
+                    return XCTFail("Expected to receive result 2 times only")
+                }
 
-            switch result {
-            case .failure(let error):
-                guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                switch result {
+                case .failure(let error):
+                    guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                    }
+                case .success(let instances):
+                    guard resultCounter.load() == 2 else {
+                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
+                    }
+                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                    semaphore.signal()
                 }
-            case .success(let instances):
-                guard resultCounter.load() == 2 else {
-                    return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
-                }
-                XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
-                semaphore.signal()
-            }
-        }
+            },
+            onComplete: onComplete
+        )
 
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 
@@ -108,9 +112,9 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         XCTAssertEqual(resultCounter.load(), 2, "Expected to receive result 2 times, got \(resultCounter.load())")
 
-        // Verify `onTerminate` gets invoked on `shutdown`
+        // Verify `onComplete` gets invoked on `shutdown`
         serviceDiscovery.shutdown()
-        XCTAssertTrue(onTerminateInvoked.load(), "Expected onTerminate to be invoked")
+        XCTAssertTrue(onCompleteInvoked.load(), "Expected onComplete to be invoked")
     }
 
     func test_subscribe_cancel() throws {
@@ -124,46 +128,54 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscribers
-        serviceDiscovery.subscribe(to: self.barService, onTerminate: {}) { result in
-            _ = resultCounter1.add(1)
+        serviceDiscovery.subscribe(
+            to: self.barService,
+            onNext: { result in
+                _ = resultCounter1.add(1)
 
-            guard resultCounter1.load() <= 2 else {
-                return XCTFail("Expected to receive result 2 times only")
-            }
+                guard resultCounter1.load() <= 2 else {
+                    return XCTFail("Expected to receive result 2 times only")
+                }
 
-            switch result {
-            case .failure(let error):
-                guard resultCounter1.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                switch result {
+                case .failure(let error):
+                    guard resultCounter1.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                    }
+                case .success(let instances):
+                    guard resultCounter1.load() == 2 else {
+                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter1.load()) got \(instances)")
+                    }
+                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                    semaphore.signal()
                 }
-            case .success(let instances):
-                guard resultCounter1.load() == 2 else {
-                    return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter1.load()) got \(instances)")
-                }
-                XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
-                semaphore.signal()
-            }
-        }
+            },
+            onComplete: {}
+        )
 
         // This subscriber receives Result #1 only because we cancel subscription before Result #2 is triggered
-        let token = serviceDiscovery.subscribe(to: self.barService, onTerminate: {}) { result in
-            _ = resultCounter2.add(1)
+        let cancellationToken = serviceDiscovery.subscribe(
+            to: self.barService,
+            onNext: { result in
+                _ = resultCounter2.add(1)
 
-            guard resultCounter2.load() <= 1 else {
-                return XCTFail("Expected to receive result 1 time only")
-            }
-
-            switch result {
-            case .failure(let error):
-                guard resultCounter2.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                guard resultCounter2.load() <= 1 else {
+                    return XCTFail("Expected to receive result 1 time only")
                 }
-            case .success:
-                return XCTFail("Does not expect to receive instances list")
-            }
-        }
 
-        token.cancel()
+                switch result {
+                case .failure(let error):
+                    guard resultCounter2.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                    }
+                case .success:
+                    return XCTFail("Does not expect to receive instances list")
+                }
+            },
+            onComplete: {}
+        )
+
+        cancellationToken.cancel()
         // Only subscriber 1 will receive this change
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 

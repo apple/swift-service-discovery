@@ -42,16 +42,16 @@ public protocol ServiceDiscovery {
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
-    /// The service's current list of instances will be sent to `handler` when this method is first invoked. Subsequently,
-    /// `handler` will only receive updates when the `service`'s instances change.
+    /// The service's current list of instances will be sent to `onNext` when this method is first called. Subsequently,
+    /// `onNext` will only be invoked when the `service`'s instances change.
     ///
     /// - Parameters:
     ///   - service: The service to subscribe to
-    ///   - onTerminate: The closure to invoke when the subscription terminates
-    ///   - handler: The closure to receive update
+    ///   - onNext: The closure to receive update result
+    ///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.)
     ///
     /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
-    func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> CancellationToken
+    func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void) -> CancellationToken
 }
 
 /// Errors that might occur during lookup.

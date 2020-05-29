@@ -50,14 +50,21 @@ serviceDiscovery.lookup(service) { result in
 To fetch the current list of instances (where `result` is `Result<[Instance], Error>`) AND subscribe to future changes:
 
 ```swift
-let token = serviceDiscovery.subscribe(to: service, onTerminate: {}) { result in
-    // This closure gets invoked once at the beginning and subsequently each time a change occurs
-    ...
+let token = serviceDiscovery.subscribe(
+    to: service, 
+    onNext: { result in
+        // This closure gets invoked once at the beginning and subsequently each time a change occurs
+        ...
+    },
+    onComplete: {
+        // This closure gets invoked when the subscription completes
+        ...
+    }
 }
 ```
 
-`subscribe` returns a `CancellationToken` that you can use to cancel thesubscription later on. `onTerminate` is a closure that
-gets invoked when the subscription gets terminated (e.g., when the service discovery instance shuts down).
+`subscribe` returns a `CancellationToken` that you can use to cancel thesubscription later on. `onComplete` is a closure that
+gets invoked when the subscription ends (e.g., when the service discovery instance shuts down).
 
 ## Implementing a service discovery backend
 
@@ -102,16 +109,16 @@ The backend implementation should impose a deadline on when the operation will c
 ```
 /// Subscribes to receive a service's instances whenever they change.
 ///
-/// The service's current list of instances will be sent to `handler` when this method is first invoked. Subsequently,
-/// `handler` will only receive updates when the `service`'s instances change.
+/// The service's current list of instances will be sent to `onNext` when this method is first called. Subsequently,
+/// `onNext` will only be invoked when the `service`'s instances change.
 ///
 /// - Parameters:
 ///   - service: The service to subscribe to
-///   - onTerminate: The closure to invoke when the subscription terminates
-///   - handler: The closure to receive update
+///   - onNext: The closure to receive update result
+///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.)
 ///
 /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
-func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> CancellationToken
+func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void) -> CancellationToken
 ```
 
 `subscribe` "pushes" service instances to the `handler`. The backend implementation is expected to call `handler`:
@@ -121,7 +128,7 @@ func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: 
 
 A new `CancellationToken` must be created for each `subscribe` request, and when the token's `isCanceled` is `true`, the subscription has been canceled and the backend implementation should cease calling the corresponding `handler`.
 
-The backend implementation must also notify via `onTerminate` when it has to terminate subscription for any reason (e.g., the service discovery instance is shutting down), so that the subscriber can submit another `subscribe` request.
+The backend implementation must also notify via `onComplete` when it has to end subscription for any reason (e.g., the service discovery instance is shutting down), so that the subscriber can submit another `subscribe` request if needed.
 
 ---
 
