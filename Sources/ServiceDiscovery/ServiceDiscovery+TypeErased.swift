@@ -25,7 +25,7 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
 
     private let _lookup: (Service, DispatchTime?, @escaping (Result<[Instance], Error>) -> Void) -> Void
 
-    private let _subscribe: (Service, @escaping (Result<[Instance], Error>) -> Void, @escaping () -> Void) -> CancellationToken
+    private let _subscribe: (Service, @escaping (Result<[Instance], Error>) -> Void, @escaping (CompletionReason) -> Void) -> CancellationToken
 
     public var defaultLookupTimeout: DispatchTimeInterval {
         self._defaultLookupTimeout()
@@ -54,7 +54,11 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
     }
 
     @discardableResult
-    public func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void = {}) -> CancellationToken {
+    public func subscribe(
+        to service: Service,
+        onNext: @escaping (Result<[Instance], Error>) -> Void,
+        onComplete: @escaping (CompletionReason) -> Void = { _ in }
+    ) -> CancellationToken {
         self._subscribe(service, onNext, onComplete)
     }
 
@@ -82,7 +86,7 @@ public class AnyServiceDiscovery: ServiceDiscovery {
 
     private let _lookup: (AnyHashable, DispatchTime?, @escaping (Result<[AnyHashable], Error>) -> Void) -> Void
 
-    private let _subscribe: (AnyHashable, @escaping (Result<[AnyHashable], Error>) -> Void, @escaping () -> Void) -> CancellationToken
+    private let _subscribe: (AnyHashable, @escaping (Result<[AnyHashable], Error>) -> Void, @escaping (CompletionReason) -> Void) -> CancellationToken
 
     public var defaultLookupTimeout: DispatchTimeInterval {
         self._defaultLookupTimeout()
@@ -141,7 +145,11 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     ///
     /// - Warning: If `service` type does not match the underlying `ServiceDiscovery`'s, it would result in a failure.
     @discardableResult
-    public func subscribe(to service: AnyHashable, onNext: @escaping (Result<[AnyHashable], Error>) -> Void, onComplete: @escaping () -> Void = {}) -> CancellationToken {
+    public func subscribe(
+        to service: AnyHashable,
+        onNext: @escaping (Result<[AnyHashable], Error>) -> Void,
+        onComplete: @escaping (CompletionReason) -> Void = { _ in }
+    ) -> CancellationToken {
         self._subscribe(service, onNext, onComplete)
     }
 
@@ -152,7 +160,7 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     public func subscribeAndUnwrap<Service, Instance>(
         to service: Service,
         onNext: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete: @escaping () -> Void = {}
+        onComplete: @escaping (CompletionReason) -> Void = { _ in }
     ) -> CancellationToken where Service: Hashable, Instance: Hashable {
         self._subscribe(AnyHashable(service), { result in onNext(self.transform(result)) }, onComplete)
     }

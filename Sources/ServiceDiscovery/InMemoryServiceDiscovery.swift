@@ -71,16 +71,21 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     @discardableResult
-    public func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void = {}) -> CancellationToken {
+    public func subscribe(
+        to service: Service,
+        onNext: @escaping (Result<[Instance], Error>) -> Void,
+        onComplete: @escaping (CompletionReason) -> Void = { _ in }
+    ) -> CancellationToken {
         guard !self.isShutdown else {
             onNext(.failure(ServiceDiscoveryError.unavailable))
+            onComplete(.serviceDiscoveryUnavailable)
             return CancellationToken(isCanceled: true)
         }
 
         // Call `lookup` once and send result to subscriber
         self.lookup(service, callback: onNext)
 
-        let cancellationToken = CancellationToken()
+        let cancellationToken = CancellationToken(onComplete: onComplete)
         let subscription = Subscription(onNext: onNext, onComplete: onComplete, cancellationToken: cancellationToken)
 
         // Save the subscription
@@ -113,13 +118,13 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self.serviceSubscriptions.values.forEach { subscriptions in
             subscriptions
                 .filter { !$0.cancellationToken.isCanceled }
-                .forEach { $0.onComplete() }
+                .forEach { $0.onComplete(.serviceDiscoveryUnavailable) }
         }
     }
 
     private struct Subscription {
         let onNext: (Result<[Instance], Error>) -> Void
-        let onComplete: () -> Void
+        let onComplete: (CompletionReason) -> Void
         let cancellationToken: CancellationToken
     }
 }

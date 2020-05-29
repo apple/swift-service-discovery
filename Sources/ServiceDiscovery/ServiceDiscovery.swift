@@ -48,10 +48,11 @@ public protocol ServiceDiscovery {
     /// - Parameters:
     ///   - service: The service to subscribe to
     ///   - onNext: The closure to receive update result
-    ///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.)
+    ///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
+    ///                 including cancellation requested through `CancellationToken`.
     ///
     /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
-    func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void) -> CancellationToken
+    func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping (CompletionReason) -> Void) -> CancellationToken
 }
 
 // MARK: - Subscription
@@ -59,6 +60,7 @@ public protocol ServiceDiscovery {
 /// Enables cancellation of service discovery subscription.
 public class CancellationToken {
     private let _isCanceled: SDAtomic<Bool>
+    private let _onComplete: (CompletionReason) -> Void
 
     /// Returns  `true` if  the subscription has been canceled.
     public var isCanceled: Bool {
@@ -66,14 +68,47 @@ public class CancellationToken {
     }
 
     /// Creates a new token.
-    public init(isCanceled: Bool = false) {
+    public init(isCanceled: Bool = false, onComplete: @escaping (CompletionReason) -> Void = { _ in }) {
         self._isCanceled = SDAtomic<Bool>(isCanceled)
+        self._onComplete = onComplete
     }
 
     /// Cancels the subscription.
     public func cancel() {
+        guard !self.isCanceled else { return }
+
         self._isCanceled.store(true)
+        self._onComplete(.cancellationRequested)
     }
+}
+
+/// Reason that leads to service discovery subscription completion.
+public struct CompletionReason: Equatable, CustomStringConvertible {
+    internal enum ReasonType: Int, Equatable, CustomStringConvertible {
+        case cancellationRequested
+        case serviceDiscoveryUnavailable
+
+        var description: String {
+            switch self {
+            case .cancellationRequested:
+                return "cancellationRequested"
+            case .serviceDiscoveryUnavailable:
+                return "serviceDiscoveryUnavailable"
+            }
+        }
+    }
+
+    internal let type: ReasonType
+
+    public var description: String {
+        "CompletionReason.\(String(describing: self.type))"
+    }
+
+    /// Cancellation requested through `CancellationToken`.
+    public static let cancellationRequested = CompletionReason(type: .cancellationRequested)
+
+    /// Service discovery is unavailable.
+    public static let serviceDiscoveryUnavailable = CompletionReason(type: .serviceDiscoveryUnavailable)
 }
 
 // MARK: - Service discovery errors
@@ -84,7 +119,7 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
         case unknownService
         case timedOut
 
-        public var description: String {
+        var description: String {
             switch self {
             case .unknownService:
                 return "unknownService"
@@ -95,10 +130,6 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
     }
 
     internal let type: ErrorType
-
-    internal init(type: ErrorType) {
-        self.type = type
-    }
 
     public var description: String {
         "LookupError.\(String(describing: self.type))"
@@ -116,7 +147,7 @@ public struct ServiceDiscoveryError: Error, Equatable, CustomStringConvertible {
     internal enum ErrorType: Equatable, CustomStringConvertible {
         case unavailable
 
-        public var description: String {
+        var description: String {
             switch self {
             case .unavailable:
                 return "unavailable"
@@ -125,10 +156,6 @@ public struct ServiceDiscoveryError: Error, Equatable, CustomStringConvertible {
     }
 
     internal let type: ErrorType
-
-    internal init(type: ErrorType) {
-        self.type = type
-    }
 
     public var description: String {
         "ServiceDiscoveryError.\(String(describing: self.type))"

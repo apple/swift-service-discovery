@@ -76,7 +76,10 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let resultCounter = SDAtomic<Int>(0)
 
         let onCompleteInvoked = SDAtomic<Bool>(false)
-        let onComplete: () -> Void = { onCompleteInvoked.store(true) }
+        let onComplete: (CompletionReason) -> Void = { completionReason in
+            XCTAssertEqual(completionReason, .serviceDiscoveryUnavailable, "Expected completionReason to be .serviceDiscoveryUnavailable, got \(completionReason)")
+            onCompleteInvoked.store(true)
+        }
 
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
@@ -149,6 +152,12 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
             }
         })
 
+        let onCompleteInvoked = SDAtomic<Bool>(false)
+        let onComplete: (CompletionReason) -> Void = { completionReason in
+            XCTAssertEqual(completionReason, .cancellationRequested, "Expected completionReason to be .cancellationRequested, got \(completionReason)")
+            onCompleteInvoked.store(true)
+        }
+
         // This subscriber receives Result #1 only because we cancel subscription before Result #2 is triggered
         let cancellationToken = serviceDiscovery.subscribe(to: self.barService, onNext: { result in
             _ = resultCounter2.add(1)
@@ -165,7 +174,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
             case .success:
                 return XCTFail("Does not expect to receive instances list")
             }
-        })
+        }, onComplete: onComplete)
 
         cancellationToken.cancel()
         // Only subscriber 1 will receive this change
@@ -175,6 +184,8 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         XCTAssertEqual(resultCounter1.load(), 2, "Expected subscriber #1 to receive result 2 times, got \(resultCounter1.load())")
         XCTAssertEqual(resultCounter2.load(), 1, "Expected subscriber #2 to receive result 1 time, got \(resultCounter2.load())")
+        // Verify `onComplete` gets invoked on `cancel`
+        XCTAssertTrue(onCompleteInvoked.load(), "Expected onComplete to be invoked")
     }
 
     private func ensureResult(serviceDiscovery: InMemoryServiceDiscovery<Service, Instance>, service: Service) throws -> Result<[Instance], Error> {
