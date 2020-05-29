@@ -43,6 +43,11 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
+        guard !self.isShutdown else {
+            callback(.failure(ServiceDiscoveryError.unavailable))
+            return
+        }
+
         let semaphore = DispatchSemaphore(value: 0)
         var result: Result<[Instance], Error>! // !-safe because if-else block always set `result` otherwise the operation has timed out
 
@@ -67,6 +72,11 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
     @discardableResult
     public func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void = {}) -> CancellationToken {
+        guard !self.isShutdown else {
+            onNext(.failure(ServiceDiscoveryError.unavailable))
+            return CancellationToken(isCanceled: true)
+        }
+
         // Call `lookup` once and send result to subscriber
         self.lookup(service, callback: onNext)
 
@@ -83,6 +93,8 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
     /// Registers a service and its `instances`.
     public func register(_ service: Service, instances: [Instance]) {
+        guard !self.isShutdown else { return }
+
         let previousInstances = self.serviceInstances[service]
         self.serviceInstances[service] = instances
 

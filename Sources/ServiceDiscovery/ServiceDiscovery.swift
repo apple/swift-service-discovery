@@ -54,6 +54,30 @@ public protocol ServiceDiscovery {
     func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping () -> Void) -> CancellationToken
 }
 
+// MARK: - Subscription
+
+/// Enables cancellation of service discovery subscription.
+public class CancellationToken {
+    private let _isCanceled: SDAtomic<Bool>
+
+    /// Returns  `true` if  the subscription has been canceled.
+    public var isCanceled: Bool {
+        self._isCanceled.load()
+    }
+
+    /// Creates a new token.
+    public init(isCanceled: Bool = false) {
+        self._isCanceled = SDAtomic<Bool>(isCanceled)
+    }
+
+    /// Cancels the subscription.
+    public func cancel() {
+        self._isCanceled.store(true)
+    }
+}
+
+// MARK: - Service discovery errors
+
 /// Errors that might occur during lookup.
 public struct LookupError: Error, Equatable, CustomStringConvertible {
     internal enum ErrorType: Equatable, CustomStringConvertible {
@@ -87,24 +111,29 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
     public static let timedOut = LookupError(type: .timedOut)
 }
 
-// MARK: - Cancellation token for `subscribe`
+/// General service discovery errors.
+public struct ServiceDiscoveryError: Error, Equatable, CustomStringConvertible {
+    internal enum ErrorType: Equatable, CustomStringConvertible {
+        case unavailable
 
-/// Enables cancellation of service discovery subscription.
-public class CancellationToken {
-    private let _isCanceled: SDAtomic<Bool>
-
-    /// Returns  `true` if  the subscription has been canceled.
-    public var isCanceled: Bool {
-        self._isCanceled.load()
+        public var description: String {
+            switch self {
+            case .unavailable:
+                return "unavailable"
+            }
+        }
     }
 
-    /// Creates a new token.
-    public init() {
-        self._isCanceled = SDAtomic<Bool>(false)
+    internal let type: ErrorType
+
+    internal init(type: ErrorType) {
+        self.type = type
     }
 
-    /// Cancels the subscription.
-    public func cancel() {
-        self._isCanceled.store(true)
+    public var description: String {
+        "ServiceDiscoveryError.\(String(describing: self.type))"
     }
+
+    /// `ServiceDiscovery` instance is unavailable.
+    public static let unavailable = ServiceDiscoveryError(type: .unavailable)
 }
