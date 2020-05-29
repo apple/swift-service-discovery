@@ -65,11 +65,11 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         callback(result)
     }
 
-    public func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> SubscriptionToken {
+    public func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> CancellationToken {
         // Call `lookup` once and send result to subscriber
         self.lookup(service, callback: handler)
 
-        let token = SubscriptionToken()
+        let token = CancellationToken()
         let subscription = Subscription(handler: handler, onTerminate: onTerminate, token: token)
 
         // Save the subscription
@@ -107,7 +107,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     private struct Subscription {
         let handler: (Result<[Instance], Error>) -> Void
         let onTerminate: () -> Void
-        let token: SubscriptionToken
+        let token: CancellationToken
     }
 }
 

@@ -56,7 +56,7 @@ let token = serviceDiscovery.subscribe(to: service, onTerminate: {}) { result in
 }
 ```
 
-`subscribe` returns a `SubscriptionToken` that you can use to cancel the subscription later on. `onTerminate` is a closure that
+`subscribe` returns a `CancellationToken` that you can use to cancel thesubscription later on. `onTerminate` is a closure that
 gets invoked when the subscription gets terminated (e.g., when the service discovery instance shuts down).
 
 ## Implementing a service discovery backend
@@ -110,8 +110,8 @@ The backend implementation should impose a deadline on when the operation will c
 ///   - onTerminate: The closure to invoke when the subscription terminates
 ///   - handler: The closure to receive update
 ///
-/// -  Returns: A `SubscriptionToken` instance that can be used to cancel the subscription in the future.
-func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> SubscriptionToken
+/// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
+func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> CancellationToken
 ```
 
 `subscribe` "pushes" service instances to the `handler`. The backend implementation is expected to call `handler`:
@@ -119,7 +119,7 @@ func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: 
 - When `subscribe` is first invoked, the caller should receive the current list of instances for the given service. This is essentially the `lookup` result.
 - Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must notify `handler` when the instances list becomes different from the previous result.
 
-A new `SubscriptionToken` must be created for each `subscribe` request, and when the token's `isCanceled` is `true`, the subscription has been canceled and the backend implementation should cease calling the corresponding `handler`.
+A new `CancellationToken` must be created for each `subscribe` request, and when the token's `isCanceled` is `true`, the subscription has been canceled and the backend implementation should cease calling the corresponding `handler`.
 
 The backend implementation must also notify via `onTerminate` when it has to terminate subscription for any reason (e.g., the service discovery instance is shutting down), so that the subscriber can submit another `subscribe` request.
 

@@ -50,8 +50,8 @@ public protocol ServiceDiscovery {
     ///   - onTerminate: The closure to invoke when the subscription terminates
     ///   - handler: The closure to receive update
     ///
-    /// -  Returns: A `SubscriptionToken` instance that can be used to cancel the subscription in the future.
-    func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> SubscriptionToken
+    /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
+    func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> CancellationToken
 }
 
 /// Errors that might occur during lookup.
@@ -87,10 +87,10 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
     public static let timedOut = LookupError(type: .timedOut)
 }
 
-// MARK: - Subscription
+// MARK: - Cancellation token for `subscribe`
 
 /// Enables cancellation of service discovery subscription.
-public class SubscriptionToken {
+public class CancellationToken {
     private let _isCanceled: SDAtomic<Bool>
 
     /// Returns  `true` if  the subscription has been canceled.
