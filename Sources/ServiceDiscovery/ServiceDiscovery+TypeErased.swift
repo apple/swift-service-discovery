@@ -53,6 +53,7 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
         self._lookup(service, deadline, callback)
     }
 
+    @discardableResult
     public func subscribe(to service: Service, onTerminate: @escaping () -> Void, handler: @escaping (Result<[Instance], Error>) -> Void) -> CancellationToken {
         self._subscribe(service, onTerminate, handler)
     }
@@ -61,6 +62,7 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
     ///
     /// - Throws: ` TypeErasedServiceDiscoveryError.typeMismatch` when the underlying
     ///           `ServiceDiscovery` instance is not of type `ServiceDiscoveryImpl`.
+    @discardableResult
     public func unwrapAs<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscoveryType: ServiceDiscoveryImpl.Type) throws -> ServiceDiscoveryImpl {
         guard let unwrapped = self._underlying as? ServiceDiscoveryImpl else {
             throw TypeErasedServiceDiscoveryError.typeMismatch(description: "Cannot unwrap [\(type(of: self._underlying)))] as [\(ServiceDiscoveryImpl.self)]")
@@ -136,6 +138,7 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     /// See `ServiceDiscovery.subscribe`.
     ///
     /// - Warning: If `service` type does not match the underlying `ServiceDiscovery`'s, it would result in a failure.
+    @discardableResult
     public func subscribe(to service: AnyHashable, onTerminate: @escaping () -> Void, handler: @escaping (Result<[AnyHashable], Error>) -> Void) -> CancellationToken {
         self._subscribe(service, onTerminate, handler)
     }
@@ -143,6 +146,7 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     /// See `subscribe`.
     ///
     /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
+    @discardableResult
     public func subscribeAndUnwrap<Service, Instance>(
         to service: Service,
         onTerminate: @escaping () -> Void,

@@ -81,7 +81,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        _ = serviceDiscovery.subscribe(to: self.barService, onTerminate: onTerminate) { result in
+        serviceDiscovery.subscribe(to: self.barService, onTerminate: onTerminate) { result in
             _ = resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
@@ -124,7 +124,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscribers
-        _ = serviceDiscovery.subscribe(to: self.barService, onTerminate: {}) { result in
+        serviceDiscovery.subscribe(to: self.barService, onTerminate: {}) { result in
             _ = resultCounter1.add(1)
 
             guard resultCounter1.load() <= 2 else {
