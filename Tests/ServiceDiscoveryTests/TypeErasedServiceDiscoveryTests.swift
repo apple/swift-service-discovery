@@ -66,7 +66,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
         boxedServiceDiscovery.subscribe(to: self.barService, onNext: { result in
-            _ = resultCounter.add(1)
+            resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
                 return XCTFail("Expected to receive result 2 times only")
@@ -135,7 +135,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
         anyServiceDiscovery.subscribe(to: self.barService, onNext: { result in
-            _ = resultCounter.add(1)
+            resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
                 return XCTFail("Expected to receive result 2 times only")

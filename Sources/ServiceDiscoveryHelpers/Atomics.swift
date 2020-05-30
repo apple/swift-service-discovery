@@ -70,6 +70,7 @@ public class SDAtomic<T: SDAtomicPrimitive> {
     /// Atomically adds `rhs` to this object.
     ///
     /// - Returns: The previous value of this object, before the addition occurred.
+    @discardableResult
     public func add(_ rhs: T) -> T {
         T.sd_atomic_add(self.rawPointer, rhs)
     }
@@ -77,6 +78,7 @@ public class SDAtomic<T: SDAtomicPrimitive> {
     /// Atomically subtracts `rhs` from this object.
     ///
     /// - Returns: The previous value of this object, before the subtraction occurred.
+    @discardableResult
     public func sub(_ rhs: T) -> T {
         T.sd_atomic_sub(self.rawPointer, rhs)
     }
