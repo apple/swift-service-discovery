@@ -18,7 +18,7 @@ import ServiceDiscoveryHelpers
 // MARK: - Service discovery protocol
 
 /// Provides service instances lookup.
-public protocol ServiceDiscovery {
+public protocol ServiceDiscovery: AnyObject {
     /// Service identity type
     associatedtype Service: Hashable
     /// Service instance type
