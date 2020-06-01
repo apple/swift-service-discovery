@@ -62,7 +62,7 @@ public class CancellationToken {
     private let _isCanceled: SDAtomic<Bool>
     private let _onComplete: (CompletionReason) -> Void
 
-    /// Returns  `true` if  the subscription has been canceled.
+    /// Returns `true` if the subscription has been canceled.
     public var isCanceled: Bool {
         self._isCanceled.load()
     }
