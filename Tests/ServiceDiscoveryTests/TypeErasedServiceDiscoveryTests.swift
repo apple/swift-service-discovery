@@ -65,7 +65,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        boxedServiceDiscovery.subscribe(to: self.barService) { result in
+        boxedServiceDiscovery.subscribe(to: self.barService, onNext: { result in
             _ = resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
@@ -84,7 +84,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
                 XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
                 semaphore.signal()
             }
-        }
+        })
 
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 
@@ -134,7 +134,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        anyServiceDiscovery.subscribe(to: self.barService) { result in
+        anyServiceDiscovery.subscribe(to: self.barService, onNext: { result in
             _ = resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
@@ -153,7 +153,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
                 XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
                 semaphore.signal()
             }
-        }
+        })
 
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 

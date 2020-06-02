@@ -21,7 +21,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
     private var serviceInstances: [Service: [Instance]]
 
-    private var serviceSubscribers: [Service: [(Result<[Instance], Error>) -> Void]] = [:]
+    private var serviceSubscriptions: [Service: [Subscription]] = [:]
 
     public var defaultLookupTimeout: DispatchTimeInterval {
         self.configuration.defaultLookupTimeout
@@ -31,12 +31,23 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self.configuration.instancesToExclude
     }
 
+    private let _isShutdown = SDAtomic<Bool>(false)
+
+    public var isShutdown: Bool {
+        self._isShutdown.load()
+    }
+
     public init(configuration: Configuration) {
         self.configuration = configuration
         self.serviceInstances = configuration.serviceInstances
     }
 
     public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
+        guard !self.isShutdown else {
+            callback(.failure(ServiceDiscoveryError.unavailable))
+            return
+        }
+
         let semaphore = DispatchSemaphore(value: 0)
         var result: Result<[Instance], Error>! // !-safe because if-else block always set `result` otherwise the operation has timed out
 
@@ -59,24 +70,60 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         callback(result)
     }
 
-    public func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void) {
+    @discardableResult
+    public func subscribe(
+        to service: Service,
+        onNext: @escaping (Result<[Instance], Error>) -> Void,
+        onComplete: @escaping (CompletionReason) -> Void = { _ in }
+    ) -> CancellationToken {
+        guard !self.isShutdown else {
+            onComplete(.serviceDiscoveryUnavailable)
+            return CancellationToken(isCanceled: true)
+        }
+
         // Call `lookup` once and send result to subscriber
-        self.lookup(service, callback: handler)
-        // Add subscriber to list
-        var subscribers = self.serviceSubscribers.removeValue(forKey: service) ?? [(Result<[Instance], Error>) -> Void]()
-        subscribers.append(handler)
-        self.serviceSubscribers[service] = subscribers
+        self.lookup(service, callback: onNext)
+
+        let cancellationToken = CancellationToken(onComplete: onComplete)
+        let subscription = Subscription(onNext: onNext, onComplete: onComplete, cancellationToken: cancellationToken)
+
+        // Save the subscription
+        var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
+        subscriptions.append(subscription)
+        self.serviceSubscriptions[service] = subscriptions
+
+        return cancellationToken
     }
 
     /// Registers a service and its `instances`.
     public func register(_ service: Service, instances: [Instance]) {
+        guard !self.isShutdown else { return }
+
         let previousInstances = self.serviceInstances[service]
         self.serviceInstances[service] = instances
 
-        if instances != previousInstances, let subscribers = self.serviceSubscribers[service] {
+        if !self.isShutdown, instances != previousInstances, let subscriptions = self.serviceSubscriptions[service] {
             // Notify subscribers whenever instances change
-            subscribers.forEach { $0(.success(instances)) }
+            subscriptions
+                .filter { !$0.cancellationToken.isCanceled }
+                .forEach { $0.onNext(.success(instances)) }
         }
+    }
+
+    public func shutdown() {
+        guard self._isShutdown.compareAndExchange(expected: false, desired: true) else { return }
+
+        self.serviceSubscriptions.values.forEach { subscriptions in
+            subscriptions
+                .filter { !$0.cancellationToken.isCanceled }
+                .forEach { $0.onComplete(.serviceDiscoveryUnavailable) }
+        }
+    }
+
+    private struct Subscription {
+        let onNext: (Result<[Instance], Error>) -> Void
+        let onComplete: (CompletionReason) -> Void
+        let cancellationToken: CancellationToken
     }
 }
 

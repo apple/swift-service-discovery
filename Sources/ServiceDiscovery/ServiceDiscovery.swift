@@ -13,9 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
+import ServiceDiscoveryHelpers
+
+// MARK: - Service discovery protocol
 
 /// Provides service instances lookup.
-public protocol ServiceDiscovery {
+public protocol ServiceDiscovery: AnyObject {
     /// Service identity type
     associatedtype Service: Hashable
     /// Service instance type
@@ -30,14 +33,83 @@ public protocol ServiceDiscovery {
     /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
     ///
     /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
-    mutating func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
+    ///
+    /// - Parameters:
+    ///   - service: The service to lookup
+    ///   - deadline: Lookup is considered to have timed out if it does not complete by this time
+    ///   - callback: The closure to receive lookup result
+    func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
-    /// The service's current list of instances will be sent to `handler` when this method is first invoked. Subsequently,
-    /// `handler` will only receive updates when the `service`'s instances change.
-    mutating func subscribe(to service: Service, handler: @escaping (Result<[Instance], Error>) -> Void)
+    /// The service's current list of instances will be sent to `onNext` when this method is first called. Subsequently,
+    /// `onNext` will only be invoked when the `service`'s instances change.
+    ///
+    /// - Parameters:
+    ///   - service: The service to subscribe to
+    ///   - onNext: The closure to receive update result
+    ///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
+    ///                 including cancellation requested through `CancellationToken`.
+    ///
+    /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
+    func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping (CompletionReason) -> Void) -> CancellationToken
 }
+
+// MARK: - Subscription
+
+/// Enables cancellation of service discovery subscription.
+public class CancellationToken {
+    private let _isCanceled: SDAtomic<Bool>
+    private let _onComplete: (CompletionReason) -> Void
+
+    /// Returns `true` if the subscription has been canceled.
+    public var isCanceled: Bool {
+        self._isCanceled.load()
+    }
+
+    /// Creates a new token.
+    public init(isCanceled: Bool = false, onComplete: @escaping (CompletionReason) -> Void = { _ in }) {
+        self._isCanceled = SDAtomic<Bool>(isCanceled)
+        self._onComplete = onComplete
+    }
+
+    /// Cancels the subscription.
+    public func cancel() {
+        guard self._isCanceled.compareAndExchange(expected: false, desired: true) else { return }
+        self._onComplete(.cancellationRequested)
+    }
+}
+
+/// Reason that leads to service discovery subscription completion.
+public struct CompletionReason: Equatable, CustomStringConvertible {
+    internal enum ReasonType: Int, Equatable, CustomStringConvertible {
+        case cancellationRequested
+        case serviceDiscoveryUnavailable
+
+        var description: String {
+            switch self {
+            case .cancellationRequested:
+                return "cancellationRequested"
+            case .serviceDiscoveryUnavailable:
+                return "serviceDiscoveryUnavailable"
+            }
+        }
+    }
+
+    internal let type: ReasonType
+
+    public var description: String {
+        "CompletionReason.\(String(describing: self.type))"
+    }
+
+    /// Cancellation requested through `CancellationToken`.
+    public static let cancellationRequested = CompletionReason(type: .cancellationRequested)
+
+    /// Service discovery is unavailable.
+    public static let serviceDiscoveryUnavailable = CompletionReason(type: .serviceDiscoveryUnavailable)
+}
+
+// MARK: - Service discovery errors
 
 /// Errors that might occur during lookup.
 public struct LookupError: Error, Equatable, CustomStringConvertible {
@@ -45,7 +117,7 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
         case unknownService
         case timedOut
 
-        public var description: String {
+        var description: String {
             switch self {
             case .unknownService:
                 return "unknownService"
@@ -57,10 +129,6 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
 
     internal let type: ErrorType
 
-    internal init(type: ErrorType) {
-        self.type = type
-    }
-
     public var description: String {
         "LookupError.\(String(describing: self.type))"
     }
@@ -70,4 +138,27 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
 
     /// Lookup has taken longer than allowed and thus has timed out.
     public static let timedOut = LookupError(type: .timedOut)
+}
+
+/// General service discovery errors.
+public struct ServiceDiscoveryError: Error, Equatable, CustomStringConvertible {
+    internal enum ErrorType: Equatable, CustomStringConvertible {
+        case unavailable
+
+        var description: String {
+            switch self {
+            case .unavailable:
+                return "unavailable"
+            }
+        }
+    }
+
+    internal let type: ErrorType
+
+    public var description: String {
+        "ServiceDiscoveryError.\(String(describing: self.type))"
+    }
+
+    /// `ServiceDiscovery` instance is unavailable.
+    public static let unavailable = ServiceDiscoveryError(type: .unavailable)
 }
