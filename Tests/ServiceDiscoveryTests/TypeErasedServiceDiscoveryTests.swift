@@ -86,6 +86,8 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             }
         })
 
+        // Allow time for first result of `subscribe`
+        usleep(100_000)
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
@@ -155,6 +157,8 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             }
         })
 
+        // Allow time for first result of `subscribe`
+        usleep(100_000)
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))

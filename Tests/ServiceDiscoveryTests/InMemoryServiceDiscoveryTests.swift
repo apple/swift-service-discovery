@@ -109,6 +109,8 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
             onComplete: onComplete
         )
 
+        // Allow time for first result of `subscribe`
+        usleep(100_000)
         serviceDiscovery.register(self.barService, instances: self.barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
@@ -175,6 +177,9 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
                 return XCTFail("Does not expect to receive instances list")
             }
         }, onComplete: onComplete)
+
+        // Allow time for first result of `subscribe`
+        usleep(100_000)
 
         cancellationToken.cancel()
         // Only subscriber 1 will receive this change

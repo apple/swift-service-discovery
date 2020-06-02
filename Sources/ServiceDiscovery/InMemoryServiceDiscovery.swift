@@ -42,7 +42,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self._isShutdown.load()
     }
 
-    public init(configuration: Configuration, queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery")) {
+    public init(configuration: Configuration, queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)) {
         self.configuration = configuration
         self.serviceInstances = configuration.serviceInstances
         self.queue = queue
@@ -54,11 +54,10 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
             return
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: Result<[Instance], Error>! // !-safe because if-else block always set `result` otherwise the operation has timed out
+        let isDone = SDAtomic<Bool>(false)
 
-        self.queue.async { [weak self] in
-            guard let self = self else { return }
+        let lookupWorkItem = DispatchWorkItem {
+            var result: Result<[Instance], Error>! // !-safe because if-else block always set `result`
 
             self.serviceInstancesLock.withLock {
                 if var instances = self.serviceInstances[service] {
@@ -70,22 +69,26 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
                     result = .failure(LookupError.unknownService)
                 }
             }
-            semaphore.signal()
+
+            if isDone.compareAndExchange(expected: false, desired: true) {
+                callback(result)
+            }
         }
 
-        if semaphore.wait(timeout: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) == .timedOut {
-            result = .failure(LookupError.timedOut)
-        }
+        self.queue.async(execute: lookupWorkItem)
 
-        callback(result)
+        // Timeout handler
+        self.queue.asyncAfter(deadline: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) {
+            lookupWorkItem.cancel()
+
+            if isDone.compareAndExchange(expected: false, desired: true) {
+                callback(.failure(LookupError.timedOut))
+            }
+        }
     }
 
     @discardableResult
-    public func subscribe(
-        to service: Service,
-        onNext: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete: @escaping (CompletionReason) -> Void = { _ in }
-    ) -> CancellationToken {
+    public func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping (CompletionReason) -> Void = { _ in }) -> CancellationToken {
         guard !self.isShutdown else {
             onComplete(.serviceDiscoveryUnavailable)
             return CancellationToken(isCanceled: true)
