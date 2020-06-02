@@ -56,7 +56,7 @@ let cancellationToken = serviceDiscovery.subscribe(
         // This closure gets invoked once at the beginning and subsequently each time a change occurs
         ...
     },
-    onComplete: { completionReason in
+    onComplete: { reason in
         // This closure gets invoked when the subscription completes
         ...
     }

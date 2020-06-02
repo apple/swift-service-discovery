@@ -76,8 +76,8 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let resultCounter = SDAtomic<Int>(0)
 
         let onCompleteInvoked = SDAtomic<Bool>(false)
-        let onComplete: (CompletionReason) -> Void = { completionReason in
-            XCTAssertEqual(completionReason, .serviceDiscoveryUnavailable, "Expected completionReason to be .serviceDiscoveryUnavailable, got \(completionReason)")
+        let onComplete: (CompletionReason) -> Void = { reason in
+            XCTAssertEqual(reason, .serviceDiscoveryUnavailable, "Expected CompletionReason to be .serviceDiscoveryUnavailable, got \(reason)")
             onCompleteInvoked.store(true)
         }
 
@@ -153,8 +153,8 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         })
 
         let onCompleteInvoked = SDAtomic<Bool>(false)
-        let onComplete: (CompletionReason) -> Void = { completionReason in
-            XCTAssertEqual(completionReason, .cancellationRequested, "Expected completionReason to be .cancellationRequested, got \(completionReason)")
+        let onComplete: (CompletionReason) -> Void = { reason in
+            XCTAssertEqual(reason, .cancellationRequested, "Expected CompletionReason to be .cancellationRequested, got \(reason)")
             onCompleteInvoked.store(true)
         }
 

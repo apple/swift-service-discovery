@@ -111,9 +111,8 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     public func shutdown() {
-        guard !self.isShutdown else { return }
+        guard self._isShutdown.compareAndExchange(expected: false, desired: true) else { return }
 
-        self._isShutdown.store(true)
         self.serviceSubscriptions.values.forEach { subscriptions in
             subscriptions
                 .filter { !$0.cancellationToken.isCanceled }

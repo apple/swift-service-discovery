@@ -75,9 +75,7 @@ public class CancellationToken {
 
     /// Cancels the subscription.
     public func cancel() {
-        guard !self.isCanceled else { return }
-
-        self._isCanceled.store(true)
+        guard self._isCanceled.compareAndExchange(expected: false, desired: true) else { return }
         self._onComplete(.cancellationRequested)
     }
 }
