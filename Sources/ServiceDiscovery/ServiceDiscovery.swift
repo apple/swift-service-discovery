@@ -18,6 +18,10 @@ import ServiceDiscoveryHelpers
 // MARK: - Service discovery protocol
 
 /// Provides service instances lookup.
+///
+/// ### Threading
+///
+/// `ServiceDiscovery` implementations **MUST be thread-safe**.
 public protocol ServiceDiscovery: AnyObject {
     /// Service identity type
     associatedtype Service: Hashable
@@ -34,6 +38,10 @@ public protocol ServiceDiscovery: AnyObject {
     ///
     /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
     ///
+    /// ### Threading
+    ///
+    /// `callback` may be invoked on arbitrary threads, as determined by implementation.
+    ///
     /// - Parameters:
     ///   - service: The service to lookup
     ///   - deadline: Lookup is considered to have timed out if it does not complete by this time
@@ -44,6 +52,10 @@ public protocol ServiceDiscovery: AnyObject {
     ///
     /// The service's current list of instances will be sent to `onNext` when this method is first called. Subsequently,
     /// `onNext` will only be invoked when the `service`'s instances change.
+    ///
+    /// ### Threading
+    ///
+    /// `onNext` and `onComplete` may be invoked on arbitrary threads, as determined by implementation.
     ///
     /// - Parameters:
     ///   - service: The service to subscribe to

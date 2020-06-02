@@ -13,15 +13,20 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
+import Foundation // for NSLock
 import ServiceDiscoveryHelpers
 
 /// Provides lookup for service instances that are stored in-memory.
 public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
     private let configuration: Configuration
 
+    private let serviceInstancesLock = NSLock()
     private var serviceInstances: [Service: [Instance]]
 
+    private let serviceSubscriptionsLock = NSLock()
     private var serviceSubscriptions: [Service: [Subscription]] = [:]
+
+    private let queue: DispatchQueue
 
     public var defaultLookupTimeout: DispatchTimeInterval {
         self.configuration.defaultLookupTimeout
@@ -37,9 +42,10 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self._isShutdown.load()
     }
 
-    public init(configuration: Configuration) {
+    public init(configuration: Configuration, queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)) {
         self.configuration = configuration
         self.serviceInstances = configuration.serviceInstances
+        self.queue = queue
     }
 
     public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
@@ -48,34 +54,41 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
             return
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: Result<[Instance], Error>! // !-safe because if-else block always set `result` otherwise the operation has timed out
+        let isDone = SDAtomic<Bool>(false)
 
-        DispatchQueue.global().async {
-            if var instances = self.serviceInstances[service] {
-                if let instancesToExclude = self.instancesToExclude {
-                    instances.removeAll { instancesToExclude.contains($0) }
+        let lookupWorkItem = DispatchWorkItem {
+            var result: Result<[Instance], Error>! // !-safe because if-else block always set `result`
+
+            self.serviceInstancesLock.withLock {
+                if var instances = self.serviceInstances[service] {
+                    if let instancesToExclude = self.instancesToExclude {
+                        instances.removeAll { instancesToExclude.contains($0) }
+                    }
+                    result = .success(instances)
+                } else {
+                    result = .failure(LookupError.unknownService)
                 }
-                result = .success(instances)
-            } else {
-                result = .failure(LookupError.unknownService)
             }
-            semaphore.signal()
+
+            if isDone.compareAndExchange(expected: false, desired: true) {
+                callback(result)
+            }
         }
 
-        if semaphore.wait(timeout: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) == .timedOut {
-            result = .failure(LookupError.timedOut)
-        }
+        self.queue.async(execute: lookupWorkItem)
 
-        callback(result)
+        // Timeout handler
+        self.queue.asyncAfter(deadline: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) {
+            lookupWorkItem.cancel()
+
+            if isDone.compareAndExchange(expected: false, desired: true) {
+                callback(.failure(LookupError.timedOut))
+            }
+        }
     }
 
     @discardableResult
-    public func subscribe(
-        to service: Service,
-        onNext: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete: @escaping (CompletionReason) -> Void = { _ in }
-    ) -> CancellationToken {
+    public func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping (CompletionReason) -> Void = { _ in }) -> CancellationToken {
         guard !self.isShutdown else {
             onComplete(.serviceDiscoveryUnavailable)
             return CancellationToken(isCanceled: true)
@@ -88,9 +101,11 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         let subscription = Subscription(onNext: onNext, onComplete: onComplete, cancellationToken: cancellationToken)
 
         // Save the subscription
-        var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
-        subscriptions.append(subscription)
-        self.serviceSubscriptions[service] = subscriptions
+        self.serviceSubscriptionsLock.withLock {
+            var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
+            subscriptions.append(subscription)
+            self.serviceSubscriptions[service] = subscriptions
+        }
 
         return cancellationToken
     }
@@ -99,24 +114,31 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     public func register(_ service: Service, instances: [Instance]) {
         guard !self.isShutdown else { return }
 
-        let previousInstances = self.serviceInstances[service]
-        self.serviceInstances[service] = instances
+        var previousInstances: [Instance]?
+        self.serviceInstancesLock.withLock {
+            previousInstances = self.serviceInstances[service]
+            self.serviceInstances[service] = instances
+        }
 
-        if !self.isShutdown, instances != previousInstances, let subscriptions = self.serviceSubscriptions[service] {
-            // Notify subscribers whenever instances change
-            subscriptions
-                .filter { !$0.cancellationToken.isCanceled }
-                .forEach { $0.onNext(.success(instances)) }
+        self.serviceSubscriptionsLock.withLock {
+            if !self.isShutdown, instances != previousInstances, let subscriptions = self.serviceSubscriptions[service] {
+                // Notify subscribers whenever instances change
+                subscriptions
+                    .filter { !$0.cancellationToken.isCanceled }
+                    .forEach { $0.onNext(.success(instances)) }
+            }
         }
     }
 
     public func shutdown() {
         guard self._isShutdown.compareAndExchange(expected: false, desired: true) else { return }
 
-        self.serviceSubscriptions.values.forEach { subscriptions in
-            subscriptions
-                .filter { !$0.cancellationToken.isCanceled }
-                .forEach { $0.onComplete(.serviceDiscoveryUnavailable) }
+        self.serviceSubscriptionsLock.withLock {
+            self.serviceSubscriptions.values.forEach { subscriptions in
+                subscriptions
+                    .filter { !$0.cancellationToken.isCanceled }
+                    .forEach { $0.onComplete(.serviceDiscoveryUnavailable) }
+            }
         }
     }
 
@@ -155,5 +177,17 @@ extension InMemoryServiceDiscovery {
         public mutating func register(service: Service, instances: [Instance]) {
             self.serviceInstances[service] = instances
         }
+    }
+}
+
+// MARK: - NSLock extensions
+
+extension NSLock {
+    fileprivate func withLock(_ body: () -> Void) {
+        self.lock()
+        defer {
+            self.unlock()
+        }
+        body()
     }
 }
