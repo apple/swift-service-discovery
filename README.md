@@ -69,7 +69,7 @@ cancellationToken.cancel()
 ```
 
 `subscribe` returns a `CancellationToken` that you can use to cancel the subscription later on. `onComplete` is a closure that
-gets invoked when the subscription ends (e.g., when the service discovery instance shuts down) or gets canceled through the 
+gets invoked when the subscription ends (e.g., when the service discovery instance shuts down) or gets cancelled through the 
 `CancellationToken`. `CompletionReason` can be used to distinguish what leads to the completion.
 
 ## Implementing a service discovery backend
@@ -133,7 +133,7 @@ func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>
 - When `subscribe` is first invoked, the caller should receive the current list of instances for the given service. This is essentially the `lookup` result.
 - Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must notify `onNext` when the instances list becomes different from the previous result.
 
-A new `CancellationToken` must be created for each `subscribe` request. If the cancellation token's `isCanceled` is `true`, the subscription has been canceled and the backend implementation should cease calling the corresponding `onNext`.
+A new `CancellationToken` must be created for each `subscribe` request. If the cancellation token's `isCancelled` is `true`, the subscription has been cancelled and the backend implementation should cease calling the corresponding `onNext`.
 
 The backend implementation must also notify via `onComplete` when the subscription ends for any reason (e.g., the service discovery instance is shutting down or cancellation is requested through `CancellationToken`), so that the subscriber can submit another `subscribe` request if needed.
 
