@@ -65,7 +65,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        boxedServiceDiscovery.subscribe(to: self.barService, onNext: { result in
+        boxedServiceDiscovery.subscribe(to: self.barService, nextResultHandler: { result in
             resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {
@@ -136,7 +136,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        anyServiceDiscovery.subscribe(to: self.barService, onNext: { result in
+        anyServiceDiscovery.subscribe(to: self.barService, nextResultHandler: { result in
             resultCounter.add(1)
 
             guard resultCounter.load() <= 2 else {

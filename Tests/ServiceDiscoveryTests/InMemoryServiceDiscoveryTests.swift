@@ -75,10 +75,10 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let semaphore = DispatchSemaphore(value: 0)
         let resultCounter = SDAtomic<Int>(0)
 
-        let onCompleteInvoked = SDAtomic<Bool>(false)
-        let onComplete: (CompletionReason) -> Void = { reason in
+        let completionHandlerInvoked = SDAtomic<Bool>(false)
+        let completionHandler: (CompletionReason) -> Void = { reason in
             XCTAssertEqual(reason, .serviceDiscoveryUnavailable, "Expected CompletionReason to be .serviceDiscoveryUnavailable, got \(reason)")
-            onCompleteInvoked.store(true)
+            completionHandlerInvoked.store(true)
         }
 
         // Two results are expected:
@@ -86,7 +86,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         // Result #2: Later we register bar-service and that should notify the subscriber
         serviceDiscovery.subscribe(
             to: self.barService,
-            onNext: { result in
+            nextResultHandler: { result in
                 resultCounter.add(1)
 
                 guard resultCounter.load() <= 2 else {
@@ -106,7 +106,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
                     semaphore.signal()
                 }
             },
-            onComplete: onComplete
+            completionHandler: completionHandler
         )
 
         // Allow time for first result of `subscribe`
@@ -117,9 +117,9 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         XCTAssertEqual(resultCounter.load(), 2, "Expected to receive result 2 times, got \(resultCounter.load())")
 
-        // Verify `onComplete` gets invoked on `shutdown`
+        // Verify `completionHandler` gets invoked on `shutdown`
         serviceDiscovery.shutdown()
-        XCTAssertTrue(onCompleteInvoked.load(), "Expected onComplete to be invoked")
+        XCTAssertTrue(completionHandlerInvoked.load(), "Expected completionHandler to be invoked")
     }
 
     func test_subscribe_cancel() throws {
@@ -133,7 +133,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscribers
-        serviceDiscovery.subscribe(to: self.barService, onNext: { result in
+        serviceDiscovery.subscribe(to: self.barService, nextResultHandler: { result in
             resultCounter1.add(1)
 
             guard resultCounter1.load() <= 2 else {
@@ -154,29 +154,33 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
             }
         })
 
-        let onCompleteInvoked = SDAtomic<Bool>(false)
-        let onComplete: (CompletionReason) -> Void = { reason in
+        let completionHandlerInvoked = SDAtomic<Bool>(false)
+        let completionHandler: (CompletionReason) -> Void = { reason in
             XCTAssertEqual(reason, .cancellationRequested, "Expected CompletionReason to be .cancellationRequested, got \(reason)")
-            onCompleteInvoked.store(true)
+            completionHandlerInvoked.store(true)
         }
 
         // This subscriber receives Result #1 only because we cancel subscription before Result #2 is triggered
-        let cancellationToken = serviceDiscovery.subscribe(to: self.barService, onNext: { result in
-            resultCounter2.add(1)
+        let cancellationToken = serviceDiscovery.subscribe(
+            to: self.barService,
+            nextResultHandler: { result in
+                resultCounter2.add(1)
 
-            guard resultCounter2.load() <= 1 else {
-                return XCTFail("Expected to receive result 1 time only")
-            }
-
-            switch result {
-            case .failure(let error):
-                guard resultCounter2.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                    return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                guard resultCounter2.load() <= 1 else {
+                    return XCTFail("Expected to receive result 1 time only")
                 }
-            case .success:
-                return XCTFail("Does not expect to receive instances list")
-            }
-        }, onComplete: onComplete)
+
+                switch result {
+                case .failure(let error):
+                    guard resultCounter2.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                    }
+                case .success:
+                    return XCTFail("Does not expect to receive instances list")
+                }
+            },
+            completionHandler: completionHandler
+        )
 
         // Allow time for first result of `subscribe`
         usleep(100_000)
@@ -189,8 +193,8 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         XCTAssertEqual(resultCounter1.load(), 2, "Expected subscriber #1 to receive result 2 times, got \(resultCounter1.load())")
         XCTAssertEqual(resultCounter2.load(), 1, "Expected subscriber #2 to receive result 1 time, got \(resultCounter2.load())")
-        // Verify `onComplete` gets invoked on `cancel`
-        XCTAssertTrue(onCompleteInvoked.load(), "Expected onComplete to be invoked")
+        // Verify `completionHandler` gets invoked on `cancel`
+        XCTAssertTrue(completionHandlerInvoked.load(), "Expected completionHandler to be invoked")
     }
 
     func test_concurrency() throws {
