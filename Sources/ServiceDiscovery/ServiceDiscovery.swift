@@ -71,23 +71,23 @@ public protocol ServiceDiscovery: AnyObject {
 
 /// Enables cancellation of service discovery subscription.
 public class CancellationToken {
-    private let _isCanceled: SDAtomic<Bool>
+    private let _isCancelled: SDAtomic<Bool>
     private let _onComplete: (CompletionReason) -> Void
 
-    /// Returns `true` if the subscription has been canceled.
-    public var isCanceled: Bool {
-        self._isCanceled.load()
+    /// Returns `true` if the subscription has been cancelled.
+    public var isCancelled: Bool {
+        self._isCancelled.load()
     }
 
     /// Creates a new token.
-    public init(isCanceled: Bool = false, onComplete: @escaping (CompletionReason) -> Void = { _ in }) {
-        self._isCanceled = SDAtomic<Bool>(isCanceled)
+    public init(isCancelled: Bool = false, onComplete: @escaping (CompletionReason) -> Void = { _ in }) {
+        self._isCancelled = SDAtomic<Bool>(isCancelled)
         self._onComplete = onComplete
     }
 
     /// Cancels the subscription.
     public func cancel() {
-        guard self._isCanceled.compareAndExchange(expected: false, desired: true) else { return }
+        guard self._isCancelled.compareAndExchange(expected: false, desired: true) else { return }
         self._onComplete(.cancellationRequested)
     }
 }
