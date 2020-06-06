@@ -97,7 +97,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         // Call `lookup` once and send result to subscriber
         self.lookup(service, callback: onNext)
 
-        let cancellationToken = CancellationToken(onComplete: onComplete)
+        let cancellationToken = CancellationToken(completionHandler: onComplete)
         let subscription = Subscription(onNext: onNext, onComplete: onComplete, cancellationToken: cancellationToken)
 
         // Save the subscription
