@@ -44,8 +44,8 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
         self._lookup = { service, deadline, callback in
             serviceDiscovery.lookup(service, deadline: deadline, callback: callback)
         }
-        self._subscribe = { service, onNext, onComplete in
-            serviceDiscovery.subscribe(to: service, onNext: onNext, onComplete: onComplete)
+        self._subscribe = { service, nextResultHandler, completionHandler in
+            serviceDiscovery.subscribe(to: service, onNext: nextResultHandler, onComplete: completionHandler)
         }
     }
 
@@ -56,10 +56,10 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
     @discardableResult
     public func subscribe(
         to service: Service,
-        onNext: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete: @escaping (CompletionReason) -> Void = { _ in }
+        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
+        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
     ) -> CancellationToken {
-        self._subscribe(service, onNext, onComplete)
+        self._subscribe(service, nextResultHandler, completionHandler)
     }
 
     /// Unwraps the underlying `ServiceDiscovery` instance as `ServiceDiscoveryImpl` type.
@@ -109,14 +109,14 @@ public class AnyServiceDiscovery: ServiceDiscovery {
                 callback(result.map { $0.map(AnyHashable.init) })
             }
         }
-        self._subscribe = { anyService, onNext, onComplete in
+        self._subscribe = { anyService, nextResultHandler, completionHandler in
             guard let service = anyService.base as? ServiceDiscoveryImpl.Service else {
                 preconditionFailure("Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService.base))")
             }
             return serviceDiscovery.subscribe(
                 to: service,
-                onNext: { result in onNext(result.map { $0.map(AnyHashable.init) }) },
-                onComplete: onComplete
+                onNext: { result in nextResultHandler(result.map { $0.map(AnyHashable.init) }) },
+                onComplete: completionHandler
             )
         }
     }
@@ -147,10 +147,10 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     @discardableResult
     public func subscribe(
         to service: AnyHashable,
-        onNext: @escaping (Result<[AnyHashable], Error>) -> Void,
-        onComplete: @escaping (CompletionReason) -> Void = { _ in }
+        onNext nextResultHandler: @escaping (Result<[AnyHashable], Error>) -> Void,
+        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
     ) -> CancellationToken {
-        self._subscribe(service, onNext, onComplete)
+        self._subscribe(service, nextResultHandler, completionHandler)
     }
 
     /// See `subscribe`.
@@ -159,10 +159,10 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     @discardableResult
     public func subscribeAndUnwrap<Service, Instance>(
         to service: Service,
-        onNext: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete: @escaping (CompletionReason) -> Void = { _ in }
+        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
+        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
     ) -> CancellationToken where Service: Hashable, Instance: Hashable {
-        self._subscribe(AnyHashable(service), { result in onNext(self.transform(result)) }, onComplete)
+        self._subscribe(AnyHashable(service), { result in nextResultHandler(self.transform(result)) }, completionHandler)
     }
 
     private func transform<Instance>(_ result: Result<[AnyHashable], Error>) -> Result<[Instance], Error> where Instance: Hashable {

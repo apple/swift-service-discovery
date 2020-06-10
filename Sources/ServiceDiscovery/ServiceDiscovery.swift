@@ -50,21 +50,21 @@ public protocol ServiceDiscovery: AnyObject {
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
-    /// The service's current list of instances will be sent to `onNext` when this method is first called. Subsequently,
-    /// `onNext` will only be invoked when the `service`'s instances change.
+    /// The service's current list of instances will be sent to `nextResultHandler` when this method is first called. Subsequently,
+    /// `nextResultHandler` will only be invoked when the `service`'s instances change.
     ///
     /// ### Threading
     ///
-    /// `onNext` and `onComplete` may be invoked on arbitrary threads, as determined by implementation.
+    /// `nextResultHandler` and `completionHandler` may be invoked on arbitrary threads, as determined by implementation.
     ///
     /// - Parameters:
     ///   - service: The service to subscribe to
-    ///   - onNext: The closure to receive update result
-    ///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
+    ///   - nextResultHandler: The closure to receive update result
+    ///   - completionHandler: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
     ///                 including cancellation requested through `CancellationToken`.
     ///
     /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
-    func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping (CompletionReason) -> Void) -> CancellationToken
+    func subscribe(to service: Service, onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken
 }
 
 // MARK: - Subscription

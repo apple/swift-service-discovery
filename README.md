@@ -115,27 +115,31 @@ The backend implementation should impose a deadline on when the operation will c
 ```
 /// Subscribes to receive a service's instances whenever they change.
 ///
-/// The service's current list of instances will be sent to `onNext` when this method is first called. Subsequently,
-/// `onNext` will only be invoked when the `service`'s instances change.
+/// The service's current list of instances will be sent to `nextResultHandler` when this method is first called. Subsequently,
+/// `nextResultHandler` will only be invoked when the `service`'s instances change.
+///
+/// ### Threading
+///
+/// `nextResultHandler` and `completionHandler` may be invoked on arbitrary threads, as determined by implementation.
 ///
 /// - Parameters:
 ///   - service: The service to subscribe to
-///   - onNext: The closure to receive update result
-///   - onComplete: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
+///   - nextResultHandler: The closure to receive update result
+///   - completionHandler: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
 ///                 including cancellation requested through `CancellationToken`.
 ///
 /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
-func subscribe(to service: Service, onNext: @escaping (Result<[Instance], Error>) -> Void, onComplete: @escaping (CompletionReason) -> Void) -> CancellationToken
+func subscribe(to service: Service, onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken
 ```
 
-`subscribe` "pushes" service instances to the `onNext`. The backend implementation is expected to call `onNext`:
+`subscribe` "pushes" service instances to the `nextResultHandler`. The backend implementation is expected to call `nextResultHandler`:
 
 - When `subscribe` is first invoked, the caller should receive the current list of instances for the given service. This is essentially the `lookup` result.
-- Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must notify `onNext` when the instances list becomes different from the previous result.
+- Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must notify `nextResultHandler` when the instances list becomes different from the previous result.
 
-A new `CancellationToken` must be created for each `subscribe` request. If the cancellation token's `isCancelled` is `true`, the subscription has been cancelled and the backend implementation should cease calling the corresponding `onNext`.
+A new `CancellationToken` must be created for each `subscribe` request. If the cancellation token's `isCancelled` is `true`, the subscription has been cancelled and the backend implementation should cease calling the corresponding `nextResultHandler`.
 
-The backend implementation must also notify via `onComplete` when the subscription ends for any reason (e.g., the service discovery instance is shutting down or cancellation is requested through `CancellationToken`), so that the subscriber can submit another `subscribe` request if needed.
+The backend implementation must also notify via `completionHandler` when the subscription ends for any reason (e.g., the service discovery instance is shutting down or cancellation is requested through `CancellationToken`), so that the subscriber can submit another `subscribe` request if needed.
 
 ---
 
