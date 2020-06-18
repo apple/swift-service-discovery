@@ -97,6 +97,7 @@ public struct CompletionReason: Equatable, CustomStringConvertible {
     internal enum ReasonType: Int, Equatable, CustomStringConvertible {
         case cancellationRequested
         case serviceDiscoveryUnavailable
+        case failedToMapService
 
         var description: String {
             switch self {
@@ -104,6 +105,8 @@ public struct CompletionReason: Equatable, CustomStringConvertible {
                 return "cancellationRequested"
             case .serviceDiscoveryUnavailable:
                 return "serviceDiscoveryUnavailable"
+            case .failedToMapService:
+                return "failedToMapService"
             }
         }
     }
@@ -119,6 +122,9 @@ public struct CompletionReason: Equatable, CustomStringConvertible {
 
     /// Service discovery is unavailable.
     public static let serviceDiscoveryUnavailable = CompletionReason(type: .serviceDiscoveryUnavailable)
+
+    /// A service mapping function threw an error
+    public static let failedToMapService = CompletionReason(type: .failedToMapService)
 }
 
 // MARK: - Service discovery errors

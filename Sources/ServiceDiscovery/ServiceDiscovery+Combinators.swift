@@ -22,4 +22,13 @@ extension ServiceDiscovery {
     public func mapInstance<DerivedInstance: Hashable>(_ transformer: @escaping (Instance) throws -> DerivedInstance) -> MapInstanceServiceDiscovery<Self, DerivedInstance> {
         MapInstanceServiceDiscovery(originalSD: self, transformer: transformer)
     }
+
+    /// Creates a new `ServiceDiscovery` implementation based on this one, transforming the services according to
+    /// the derived function.
+    ///
+    /// It is not necessarily safe to block in this closure. This closure should not block for safety.
+    public func mapService<ComputedService: Hashable>(serviceType: ComputedService.Type = ComputedService.self,
+                                                      _ transformer: @escaping (ComputedService) throws -> Service) -> MapServiceServiceDiscovery<Self, ComputedService> {
+        MapServiceServiceDiscovery(originalSD: self, transformer: transformer)
+    }
 }

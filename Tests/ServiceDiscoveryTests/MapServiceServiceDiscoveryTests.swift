@@ -17,59 +17,57 @@ import Dispatch
 import ServiceDiscoveryHelpers
 import XCTest
 
-class MapServiceDiscoveryTests: XCTestCase {
+class MapServiceServiceDiscoveryTests: XCTestCase {
+    typealias ComputedService = Int
     typealias Service = String
-    typealias BaseInstance = Int
-    typealias DerivedInstance = HostPort
+    typealias Instance = HostPort
 
+    let services = ["fooService", "bar-service"]
+
+    let computedFooService = 0
     let fooService = "fooService"
-    let fooBaseInstances = [
-        7001,
-    ]
-    let fooDerivedInstances = [
+    let fooInstances = [
         HostPort(host: "localhost", port: 7001),
     ]
 
+    let computedBarService = 1
     let barService = "bar-service"
-    let barBaseInstances = [
-        9001,
-        9002,
-    ]
-    let barDerivedInstances = [
+    let barInstances = [
         HostPort(host: "localhost", port: 9001),
         HostPort(host: "localhost", port: 9002),
     ]
 
     func test_lookup() throws {
-        var configuration = InMemoryServiceDiscovery<Service, BaseInstance>.Configuration(serviceInstances: [fooService: self.fooBaseInstances])
-        configuration.register(service: self.barService, instances: self.barBaseInstances)
+        var configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
+        configuration.register(service: self.barService, instances: self.barInstances)
 
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapInstance { port in HostPort(host: "localhost", port: port) }
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (service: Int) in self.services[service] }
 
-        let fooResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: fooService)
+        let fooResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: computedFooService)
         guard case .success(let _fooInstances) = fooResult else {
-            return XCTFail("Failed to lookup instances for service[\(self.fooService)]")
+            return XCTFail("Failed to lookup instances for service[\(self.computedFooService)]")
         }
-        XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
-        XCTAssertEqual(_fooInstances, self.fooDerivedInstances, "Expected service[\(self.fooService)] to have instances \(self.fooDerivedInstances), got \(_fooInstances)")
+        XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.computedFooService)] to have 1 instance, got \(_fooInstances.count)")
+        XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.computedFooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
 
-        let barResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: barService)
+        let barResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: computedBarService)
         guard case .success(let _barInstances) = barResult else {
-            return XCTFail("Failed to lookup instances for service[\(self.barService)]")
+            return XCTFail("Failed to lookup instances for service[\(self.computedBarService)]")
         }
-        XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.barService)] to have 2 instances, got \(_barInstances.count)")
-        XCTAssertEqual(_barInstances, self.barDerivedInstances, "Expected service[\(self.barService)] to have instances \(self.barDerivedInstances), got \(_barInstances)")
+        XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.computedBarService)] to have 2 instances, got \(_barInstances.count)")
+        XCTAssertEqual(_barInstances, self.barInstances, "Expected service[\(self.computedBarService)] to have instances \(self.barInstances), got \(_barInstances)")
     }
 
     func test_lookup_errorIfServiceUnknown() throws {
         let unknownService = "unknown-service"
+        let unknownComputedService = 3
 
-        let configuration = InMemoryServiceDiscovery<Service, BaseInstance>.Configuration(serviceInstances: ["foo-service": []])
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapInstance { port in HostPort(host: "localhost", port: port) }
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService(serviceType: Int.self) { _ in unknownService }
 
-        let result = try ensureResult(serviceDiscovery: serviceDiscovery, service: unknownService)
+        let result = try ensureResult(serviceDiscovery: serviceDiscovery, service: unknownComputedService)
         guard case .failure(let error) = result else {
-            return XCTFail("Lookup instances for service[\(unknownService)] should return an error")
+            return XCTFail("Lookup instances for service[\(unknownComputedService)] should return an error")
         }
         guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
             return XCTFail("Expected LookupError.unknownService, got \(error)")
@@ -77,9 +75,9 @@ class MapServiceDiscoveryTests: XCTestCase {
     }
 
     func test_subscribe() throws {
-        let configuration = InMemoryServiceDiscovery<Service, BaseInstance>.Configuration(serviceInstances: [fooService: self.fooBaseInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
         let baseServiceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
-        let serviceDiscovery = baseServiceDiscovery.mapInstance { port in HostPort(host: "localhost", port: port) }
+        let serviceDiscovery = baseServiceDiscovery.mapService(serviceType: Int.self) { service in self.services[service] }
 
         let semaphore = DispatchSemaphore(value: 0)
         let resultCounter = SDAtomic<Int>(0)
@@ -94,7 +92,7 @@ class MapServiceDiscoveryTests: XCTestCase {
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
         _ = serviceDiscovery.subscribe(
-            to: self.barService,
+            to: self.computedBarService,
             onNext: { result in
                 resultCounter.add(1)
 
@@ -105,13 +103,13 @@ class MapServiceDiscoveryTests: XCTestCase {
                 switch result {
                 case .failure(let error):
                     guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.computedBarService) is not registered, got \(error)")
                     }
                 case .success(let instances):
                     guard resultCounter.load() == 2 else {
                         return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
                     }
-                    XCTAssertEqual(instances, self.barDerivedInstances, "Expected instances of \(self.barService) to be \(self.barDerivedInstances), got \(instances)")
+                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.computedBarService) to be \(self.barInstances), got \(instances)")
                     semaphore.signal()
                 }
             },
@@ -120,7 +118,7 @@ class MapServiceDiscoveryTests: XCTestCase {
 
         // Allow time for first result of `subscribe`
         usleep(100_000)
-        baseServiceDiscovery.register(self.barService, instances: self.barBaseInstances)
+        baseServiceDiscovery.register(self.barService, instances: self.barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
@@ -132,9 +130,9 @@ class MapServiceDiscoveryTests: XCTestCase {
     }
 
     func test_subscribe_cancel() throws {
-        let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooBaseInstances])
+        let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
         let baseServiceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
-        let serviceDiscovery = baseServiceDiscovery.mapInstance { port in HostPort(host: "localhost", port: port) }
+        let serviceDiscovery = baseServiceDiscovery.mapService(serviceType: Int.self) { service in self.services[service] }
 
         let semaphore = DispatchSemaphore(value: 0)
         let resultCounter1 = SDAtomic<Int>(0)
@@ -144,7 +142,7 @@ class MapServiceDiscoveryTests: XCTestCase {
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscribers
         _ = serviceDiscovery.subscribe(
-            to: self.barService,
+            to: self.computedBarService,
             onNext: { result in
                 resultCounter1.add(1)
 
@@ -155,13 +153,13 @@ class MapServiceDiscoveryTests: XCTestCase {
                 switch result {
                 case .failure(let error):
                     guard resultCounter1.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.computedBarService) is not registered, got \(error)")
                     }
                 case .success(let instances):
                     guard resultCounter1.load() == 2 else {
                         return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter1.load()) got \(instances)")
                     }
-                    XCTAssertEqual(instances, self.barDerivedInstances, "Expected instances of \(self.barService) to be \(self.barDerivedInstances), got \(instances)")
+                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.computedBarService) to be \(self.barInstances), got \(instances)")
                     semaphore.signal()
                 }
             },
@@ -176,7 +174,7 @@ class MapServiceDiscoveryTests: XCTestCase {
 
         // This subscriber receives Result #1 only because we cancel subscription before Result #2 is triggered
         let cancellationToken = serviceDiscovery.subscribe(
-            to: self.barService,
+            to: self.computedBarService,
             onNext: { result in
                 resultCounter2.add(1)
 
@@ -187,7 +185,7 @@ class MapServiceDiscoveryTests: XCTestCase {
                 switch result {
                 case .failure(let error):
                     guard resultCounter2.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.computedBarService) is not registered, got \(error)")
                     }
                 case .success:
                     return XCTFail("Does not expect to receive instances list")
@@ -201,7 +199,7 @@ class MapServiceDiscoveryTests: XCTestCase {
 
         cancellationToken.cancel()
         // Only subscriber 1 will receive this change
-        baseServiceDiscovery.register(self.barService, instances: self.barBaseInstances)
+        baseServiceDiscovery.register(self.barService, instances: self.barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
@@ -212,9 +210,9 @@ class MapServiceDiscoveryTests: XCTestCase {
     }
 
     func test_concurrency() throws {
-        let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooBaseInstances])
+        let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
         let baseServiceDisovery = InMemoryServiceDiscovery(configuration: configuration)
-        let serviceDiscovery = baseServiceDisovery.mapInstance { port in HostPort(host: "localhost", port: port) }
+        let serviceDiscovery = baseServiceDisovery.mapService(serviceType: Int.self) { service in self.services[service] }
 
         let registerSemaphore = DispatchSemaphore(value: 0)
         let registerCounter = SDAtomic<Int>(0)
@@ -225,7 +223,7 @@ class MapServiceDiscoveryTests: XCTestCase {
         let times = 100
         for _ in 1 ... times {
             DispatchQueue.global().async {
-                baseServiceDisovery.register(self.fooService, instances: self.fooBaseInstances)
+                baseServiceDisovery.register(self.fooService, instances: self.fooInstances)
                 registerCounter.add(1)
 
                 if registerCounter.load() == times {
@@ -234,10 +232,10 @@ class MapServiceDiscoveryTests: XCTestCase {
             }
 
             DispatchQueue.global().async {
-                serviceDiscovery.lookup(self.fooService, deadline: nil) { result in
+                serviceDiscovery.lookup(self.computedFooService, deadline: nil) { result in
                     lookupCounter.add(1)
 
-                    guard case .success(let instances) = result, instances == self.fooDerivedInstances else {
+                    guard case .success(let instances) = result, instances == self.fooInstances else {
                         return XCTFail("Failed to lookup instances for service[\(self.fooService)]: \(result)")
                     }
 
@@ -260,10 +258,10 @@ class MapServiceDiscoveryTests: XCTestCase {
             case error
         }
 
-        let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooBaseInstances])
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapInstance { _ -> Int in throw TestError.error }
+        let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (_: Int) -> String in throw TestError.error }
 
-        let result = try self.ensureResult(serviceDiscovery: serviceDiscovery, service: self.fooService)
+        let result = try self.ensureResult(serviceDiscovery: serviceDiscovery, service: self.computedFooService)
         guard case .failure(let err) = result else {
             XCTFail("Expected failure, got \(result)")
             return
@@ -271,16 +269,50 @@ class MapServiceDiscoveryTests: XCTestCase {
         XCTAssertEqual(err as? TestError, .error, "Expected \(TestError.error), but got \(err)")
     }
 
+    func testThrownErrorsPropagateIntoCancelledSubscriptions() throws {
+        enum TestError: Error {
+            case error
+        }
+
+        let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (_: Int) -> String in throw TestError.error }
+
+        let resultGroup = DispatchGroup()
+        resultGroup.enter()
+        resultGroup.enter()
+
+        let token = serviceDiscovery.subscribe(
+            to: self.computedFooService,
+            onNext: { result in
+                defer {
+                    resultGroup.leave()
+                }
+                guard case .failure(let err) = result else {
+                    XCTFail("Expected error, got \(result)")
+                    return
+                }
+                XCTAssertEqual(err as? TestError, .error)
+            },
+            onComplete: { reason in
+                defer {
+                    resultGroup.leave()
+                }
+                XCTAssertEqual(reason, .failedToMapService)
+            }
+        )
+        XCTAssertTrue(token.isCancelled)
+    }
+
     func testPropagateDefaultTimeout() throws {
-        let configuration = InMemoryServiceDiscovery<Service, BaseInstance>.Configuration(serviceInstances: ["foo-service": []])
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapInstance { port in HostPort(host: "localhost", port: port) }
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService(serviceType: Int.self) { service in self.services[service] }
         XCTAssertTrue(Self.compareTimeInterval(configuration.defaultLookupTimeout, serviceDiscovery.defaultLookupTimeout), "\(configuration.defaultLookupTimeout) does not match \(serviceDiscovery.defaultLookupTimeout)")
     }
 
     func testTransformExcludedInstances() throws {
-        var configuration = InMemoryServiceDiscovery<Service, BaseInstance>.Configuration(serviceInstances: ["foo-service": []])
-        configuration.instancesToExclude = [9001, 9002]
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapInstance { port in HostPort(host: "localhost", port: port) }
+        var configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
+        configuration.instancesToExclude = [HostPort(host: "localhost", port: 9001), HostPort(host: "localhost", port: 9002)]
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService(serviceType: Int.self) { service in self.services[service] }
         XCTAssertEqual(serviceDiscovery.instancesToExclude, [HostPort(host: "localhost", port: 9001), HostPort(host: "localhost", port: 9002)])
     }
 
