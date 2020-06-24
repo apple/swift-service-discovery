@@ -31,9 +31,6 @@ public protocol ServiceDiscovery: AnyObject {
     /// Default timeout for lookup.
     var defaultLookupTimeout: DispatchTimeInterval { get }
 
-    /// Instances to exclude from lookup results.
-    var instancesToExclude: Set<Instance>? { get }
-
     /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
     ///
     /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.

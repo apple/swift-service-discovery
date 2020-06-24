@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// MARK: Map
+// MARK: - Map and filter
 
 extension ServiceDiscovery {
     /// Creates a new `ServiceDiscovery` implementation based on this one, transforming the instances according to
@@ -32,6 +32,9 @@ extension ServiceDiscovery {
         MapServiceServiceDiscovery(originalSD: self, transformer: transformer)
     }
 
+    /// Creates a new `ServiceDiscovery` implementation based on this one, filtering instances with the given predicate.
+    ///
+    /// It is not necessarily safe to block in this closure. This closure should not block for safety.
     public func filterInstance(_ predicate: @escaping (Instance) throws -> Bool) -> FilterInstanceServiceDiscovery<Self> {
         FilterInstanceServiceDiscovery(originalSD: self, predicate: predicate)
     }

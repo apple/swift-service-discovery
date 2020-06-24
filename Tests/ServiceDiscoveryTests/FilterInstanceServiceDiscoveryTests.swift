@@ -278,13 +278,6 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
         XCTAssertTrue(Self.compareTimeInterval(configuration.defaultLookupTimeout, serviceDiscovery.defaultLookupTimeout), "\(configuration.defaultLookupTimeout) does not match \(serviceDiscovery.defaultLookupTimeout)")
     }
 
-    func testTransformExcludedInstances() throws {
-        var configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
-        configuration.instancesToExclude = [HostPort(host: "localhost", port: 9001), HostPort(host: "localhost", port: 9002)]
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).filterInstance { $0.port == 9001 }
-        XCTAssertEqual(serviceDiscovery.instancesToExclude, [HostPort(host: "localhost", port: 9001)])
-    }
-
     private func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Service) throws -> Result<[SD.Instance], Error> {
         let semaphore = DispatchSemaphore(value: 0)
         var result: Result<[SD.Instance], Error>?

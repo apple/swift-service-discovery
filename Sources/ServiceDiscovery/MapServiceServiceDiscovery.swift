@@ -27,11 +27,6 @@ public final class MapServiceServiceDiscovery<BaseDiscovery: ServiceDiscovery, C
 }
 
 extension MapServiceServiceDiscovery: ServiceDiscovery {
-    // This is derived from the base implementation and the transformer.
-    public var instancesToExclude: Set<BaseDiscovery.Instance>? {
-        self.originalSD.instancesToExclude
-    }
-
     /// Default timeout for lookup.
     public var defaultLookupTimeout: DispatchTimeInterval {
         self.originalSD.defaultLookupTimeout

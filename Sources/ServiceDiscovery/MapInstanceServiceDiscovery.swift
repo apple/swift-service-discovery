@@ -27,12 +27,6 @@ public final class MapInstanceServiceDiscovery<BaseDiscovery: ServiceDiscovery, 
 }
 
 extension MapInstanceServiceDiscovery: ServiceDiscovery {
-    // This is derived from the base implementation and the transformer.
-    public var instancesToExclude: Set<DerivedInstance>? {
-        // We have to crash if the transformer throws here, as we cannot error.
-        self.originalSD.instancesToExclude.map { try! Set($0.map(self.transformer)) }
-    }
-
     /// Default timeout for lookup.
     public var defaultLookupTimeout: DispatchTimeInterval {
         self.originalSD.defaultLookupTimeout
