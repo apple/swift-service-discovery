@@ -31,4 +31,8 @@ extension ServiceDiscovery {
                                                       _ transformer: @escaping (ComputedService) throws -> Service) -> MapServiceServiceDiscovery<Self, ComputedService> {
         MapServiceServiceDiscovery(originalSD: self, transformer: transformer)
     }
+
+    public func filterInstance(_ predicate: @escaping (Instance) throws -> Bool) -> FilterInstanceServiceDiscovery<Self> {
+        FilterInstanceServiceDiscovery(originalSD: self, predicate: predicate)
+    }
 }
