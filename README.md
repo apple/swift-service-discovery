@@ -78,7 +78,8 @@ SwiftServiceDiscovery includes combinators for common requirements such as trans
 
 ```swift
 // Only include instances running on port 8080
-let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).filterInstance { [8080].contains($0.port) }
+let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+    .filterInstance { [8080].contains($0.port) }
 ```
 
 ## Implementing a service discovery backend
