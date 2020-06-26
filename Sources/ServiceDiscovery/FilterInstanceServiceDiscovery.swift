@@ -27,12 +27,6 @@ public final class FilterInstanceServiceDiscovery<BaseDiscovery: ServiceDiscover
 }
 
 extension FilterInstanceServiceDiscovery: ServiceDiscovery {
-    // This is derived from the base implementation and the transformer.
-    public var instancesToExclude: Set<BaseDiscovery.Instance>? {
-        // We have to crash if the transformer throws here, as we cannot error.
-        self.originalSD.instancesToExclude.map { try! Set($0.filter(self.predicate)) }
-    }
-
     /// Default timeout for lookup.
     public var defaultLookupTimeout: DispatchTimeInterval {
         self.originalSD.defaultLookupTimeout

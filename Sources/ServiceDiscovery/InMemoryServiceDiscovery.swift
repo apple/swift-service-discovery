@@ -32,10 +32,6 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self.configuration.defaultLookupTimeout
     }
 
-    public var instancesToExclude: Set<Instance>? {
-        self.configuration.instancesToExclude
-    }
-
     private let _isShutdown = SDAtomic<Bool>(false)
 
     public var isShutdown: Bool {
@@ -60,10 +56,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
             var result: Result<[Instance], Error>! // !-safe because if-else block always set `result`
 
             self.serviceInstancesLock.withLock {
-                if var instances = self.serviceInstances[service] {
-                    if let instancesToExclude = self.instancesToExclude {
-                        instances.removeAll { instancesToExclude.contains($0) }
-                    }
+                if let instances = self.serviceInstances[service] {
                     result = .success(instances)
                 } else {
                     result = .failure(LookupError.unknownService)
@@ -158,9 +151,6 @@ extension InMemoryServiceDiscovery {
 
         /// Lookup timeout in case `deadline` is not specified
         public var defaultLookupTimeout: DispatchTimeInterval = .milliseconds(100)
-
-        /// Instances to exclude from lookup results
-        public var instancesToExclude: Set<Instance>?
 
         internal var serviceInstances: [Service: [Instance]]
 

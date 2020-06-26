@@ -21,8 +21,6 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
 
     private let _defaultLookupTimeout: () -> DispatchTimeInterval
 
-    private let _instancesToExclude: () -> Set<Instance>?
-
     private let _lookup: (Service, DispatchTime?, @escaping (Result<[Instance], Error>) -> Void) -> Void
 
     private let _subscribe: (Service, @escaping (Result<[Instance], Error>) -> Void, @escaping (CompletionReason) -> Void) -> CancellationToken
@@ -31,15 +29,10 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
         self._defaultLookupTimeout()
     }
 
-    public var instancesToExclude: Set<Instance>? {
-        self._instancesToExclude()
-    }
-
     public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl)
         where ServiceDiscoveryImpl.Service == Service, ServiceDiscoveryImpl.Instance == Instance {
         self._underlying = serviceDiscovery
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
-        self._instancesToExclude = { serviceDiscovery.instancesToExclude }
 
         self._lookup = { service, deadline, callback in
             serviceDiscovery.lookup(service, deadline: deadline, callback: callback)
@@ -82,8 +75,6 @@ public class AnyServiceDiscovery: ServiceDiscovery {
 
     private let _defaultLookupTimeout: () -> DispatchTimeInterval
 
-    private let _instancesToExclude: () -> Set<AnyHashable>?
-
     private let _lookup: (AnyHashable, DispatchTime?, @escaping (Result<[AnyHashable], Error>) -> Void) -> Void
 
     private let _subscribe: (AnyHashable, @escaping (Result<[AnyHashable], Error>) -> Void, @escaping (CompletionReason) -> Void) -> CancellationToken
@@ -92,14 +83,9 @@ public class AnyServiceDiscovery: ServiceDiscovery {
         self._defaultLookupTimeout()
     }
 
-    public var instancesToExclude: Set<AnyHashable>? {
-        self._instancesToExclude()
-    }
-
     public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl) {
         self._underlying = serviceDiscovery
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
-        self._instancesToExclude = { serviceDiscovery.instancesToExclude }
 
         self._lookup = { anyService, deadline, callback in
             guard let service = anyService.base as? ServiceDiscoveryImpl.Service else {

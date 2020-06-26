@@ -72,6 +72,16 @@ cancellationToken.cancel()
 gets invoked when the subscription ends (e.g., when the service discovery instance shuts down) or gets cancelled through the 
 `CancellationToken`. `CompletionReason` can be used to distinguish what leads to the completion.
 
+### Combinators
+
+SwiftServiceDiscovery includes combinators for common requirements such as transforming and filtering instances. For example:
+
+```swift
+// Only include instances running on port 8080
+let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+    .filterInstance { [8080].contains($0.port) }
+```
+
 ## Implementing a service discovery backend
 
 > Note: Unless you need to implement a custom service discovery backend, everything in this section is likely not relevant, so please feel free to skip.
