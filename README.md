@@ -60,7 +60,7 @@ let cancellationToken = serviceDiscovery.subscribe(
         // This closure gets invoked when the subscription completes
         ...
     }
-})
+)
 
 ...
 
@@ -116,7 +116,7 @@ To become a compatible service discovery backend that all SwiftServiceDiscovery 
 func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
 ```
 
-`lookup` fetches the current list of instances for the given service and sends it to `callback`. If the service is not registered, then the result should be a `LookupError.unknownService` failure. 
+`lookup` fetches the current list of instances for the given service and sends it to `callback`. If the service is unknown (e.g., registration is required but it has not been done for the service), then the result should be a `LookupError.unknownService` failure. 
 
 The backend implementation should impose a deadline on when the operation will complete. `deadline` should be respected if given, otherwise one should be computed using `defaultLookupTimeout`. 
 
