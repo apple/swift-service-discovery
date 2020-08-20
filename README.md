@@ -156,3 +156,4 @@ The backend implementation must also notify via `completionHandler` when the sub
 Do not hesitate to get in touch, over on https://forums.swift.org/c/server.
 
 [api-docs]: https://apple.github.io/swift-service-discovery/docs/current/ServiceDiscovery/ServiceDiscovery/index.html
+
