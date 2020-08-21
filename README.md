@@ -1,4 +1,4 @@
-# SwiftServiceDiscovery
+# Swift Service Discovery
 
 A Service Discovery API for Swift. 
 
