@@ -32,7 +32,7 @@ set -ex
 my_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 root_path="$my_path/.."
 version=$(git describe --abbrev=0 --tags || echo "0.0.0")
-modules=(Logging)
+modules=(ServiceDiscovery)
 
 if [[ "$(uname -s)" == "Linux" ]]; then
   # build code if required
@@ -59,7 +59,7 @@ if [[ "$(uname -s)" == "Linux" ]]; then
 fi
 
 [[ -d docs/$version ]] || mkdir -p docs/$version
-[[ -d swift-log.xcodeproj ]] || swift package generate-xcodeproj
+[[ -d swift-service-discovery.xcodeproj ]] || swift package generate-xcodeproj
 
 # run jazzy
 if ! command -v jazzy > /dev/null; then
@@ -72,27 +72,27 @@ mkdir -p "$jazzy_dir"
 
 module_switcher="$jazzy_dir/README.md"
 jazzy_args=(--clean
-            --author 'SwiftLog team'
+            --author 'SwiftServiceDiscovery team'
             --readme "$module_switcher"
-            --author_url https://github.com/apple/swift-log
-            --github_url https://github.com/apple/swift-log
-            --github-file-prefix https://github.com/apple/swift-log/tree/$version
+            --author_url https://github.com/apple/swift-service-discovery
+            --github_url https://github.com/apple/swift-service-discovery
+            --github-file-prefix https://github.com/apple/swift-service-discovery/tree/$version
             --theme fullwidth
-            --xcodebuild-arguments -scheme,swift-log-Package)
+            --xcodebuild-arguments -scheme,swift-service-discovery-Package)
 cat > "$module_switcher" <<"EOF"
-# SwiftLog Docs
+# SwiftServiceDiscovery Docs
 
-SwiftLog is a Swift logging API package.
+SwiftServiceDiscovery is a Swift service discovery API package.
 
-To get started with SwiftLog, [`import Logging`](../Logging/index.html). The
-most important type is [`Logger`](https://apple.github.io/swift-log/docs/current/Logging/Structs/Logger.html)
-which you can use to emit log messages.
+To get started with SwiftServiceDiscovery, [`import ServiceDiscovery`](../ServiceDiscovery/index.html). The
+most important type is [`ServiceDiscovery`](https://apple.github.io/swift-service-discovery/docs/current/ServiceDiscovery/Protocols/ServiceDiscovery.html)
+which you can use for service discovery.
 EOF
 
 for module in "${modules[@]}"; do
   args=("${jazzy_args[@]}" --output "$jazzy_dir/docs/$version/$module" --docset-path "$jazzy_dir/docset/$version/$module"
         --module "$module" --module-version $version
-        --root-url "https://apple.github.io/swift-log/docs/$version/$module/")
+        --root-url "https://apple.github.io/swift-service-discovery/docs/$version/$module/")
   if [[ -f "$root_path/.build/sourcekitten/$module.json" ]]; then
     args+=(--sourcekitten-sourcefile "$root_path/.build/sourcekitten/$module.json")
   fi
@@ -110,7 +110,7 @@ if [[ $PUSH == true ]]; then
   cp -r "$jazzy_dir/docs/$version" docs/
   cp -r "docs/$version" docs/current
   git add --all docs
-  echo '<html><head><meta http-equiv="refresh" content="0; url=docs/current/Logging/index.html" /></head></html>' > index.html
+  echo '<html><head><meta http-equiv="refresh" content="0; url=docs/current/ServiceDiscovery/index.html" /></head></html>' > index.html
   git add index.html
   touch .nojekyll
   git add .nojekyll
