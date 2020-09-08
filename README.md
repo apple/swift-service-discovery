@@ -91,13 +91,18 @@ let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
 To add a dependency on the API package, you need to declare it in your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/apple/swift-service-discovery.git", from: "1.0.0"),
+.package(url: "https://github.com/apple/swift-service-discovery.git", from: "0.1.0"),
 ```
 
 and to your library target, add "ServiceDiscovery" to your dependencies:
 
 ```swift
-.target(name: "MyServiceDiscovery", dependencies: ["ServiceDiscovery"]),
+.target(
+    name: "MyServiceDiscovery", 
+    dependencies: [
+        .product(name: "ServiceDiscovery", package: "swift-service-discovery"),
+    ]
+),
 ```
 
 To become a compatible service discovery backend that all SwiftServiceDiscovery consumers can use, you need to implement a type that conforms to the `ServiceDiscovery` protocol provided by SwiftServiceDiscovery. It includes two methods, `lookup` and `subscribe`.
