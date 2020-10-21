@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>ServiceDiscovery Protocol Reference</title>
+    <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
+    <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
+    <meta charset="utf-8">
+    <script src="../js/jquery.min.js" defer></script>
+    <script src="../js/jazzy.js" defer></script>
+    
+    <script src="../js/lunr.min.js" defer></script>
+    <script src="../js/typeahead.jquery.js" defer></script>
+    <script src="../js/jazzy.search.js" defer></script>
+  </head>
+  <body>
+
+    <a name="//apple_ref/swift/Protocol/ServiceDiscovery" class="dashAnchor"></a>
+
+    <a title="ServiceDiscovery Protocol Reference"></a>
+
+    <header class="header">
+      <p class="header-col header-col--primary">
+        <a class="header-link" href="../index.html">
+          ServiceDiscovery 0.1.0 Docs
+        </a>
+         (74% documented)
+      </p>
+    
+      <p class="header-col--secondary">
+        <form role="search" action="../search.json">
+          <input type="text" placeholder="Search documentation" data-typeahead>
+        </form>
+      </p>
+    
+        <p class="header-col header-col--secondary">
+          <a class="header-link" href="https://github.com/apple/swift-service-discovery">
+            <img class="header-icon" src="../img/gh.png"/>
+            View on GitHub
+          </a>
+        </p>
+    
+        <p class="header-col header-col--secondary">
+          <a class="header-link" href="dash-feed://https%3A%2F%2Fapple.github.io%2Fswift-service-discovery%2Fdocs%2F0.1.0%2FServiceDiscovery%2Fdocsets%2FServiceDiscovery.xml">
+            <img class="header-icon" src="../img/dash.png"/>
+            Install in Dash
+          </a>
+        </p>
+    </header>
+
+    <p class="breadcrumbs">
+      <a class="breadcrumb" href="../index.html">ServiceDiscovery Reference</a>
+      <img class="carat" src="../img/carat.png" />
+      ServiceDiscovery Protocol Reference
+    </p>
+
+    <div class="content-wrapper">
+      <nav class="navigation">
+        <ul class="nav-groups">
+          <li class="nav-group-name">
+            <a class="nav-group-name-link" href="../Classes.html">Classes</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/AnyServiceDiscovery.html">AnyServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/CancellationToken.html">CancellationToken</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/FilterInstanceServiceDiscovery.html">FilterInstanceServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/InMemoryServiceDiscovery.html">InMemoryServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/InMemoryServiceDiscovery/Configuration.html">– Configuration</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/MapInstanceServiceDiscovery.html">MapInstanceServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/MapServiceServiceDiscovery.html">MapServiceServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/ServiceDiscoveryBox.html">ServiceDiscoveryBox</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a class="nav-group-name-link" href="../Enums.html">Enumerations</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Enums/TypeErasedServiceDiscoveryError.html">TypeErasedServiceDiscoveryError</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a class="nav-group-name-link" href="../Protocols.html">Protocols</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Protocols/ServiceDiscovery.html">ServiceDiscovery</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a class="nav-group-name-link" href="../Structs.html">Structures</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Structs/CompletionReason.html">CompletionReason</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Structs/HostPort.html">HostPort</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Structs/LookupError.html">LookupError</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Structs/ServiceDiscoveryError.html">ServiceDiscoveryError</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+      <article class="main-content">
+
+        <section class="section">
+          <div class="section-content top-matter">
+            <h1>ServiceDiscovery</h1>
+              <div class="declaration">
+                <div class="language">
+                  
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">protocol</span> <span class="kt">ServiceDiscovery</span> <span class="p">:</span> <span class="kt">AnyObject</span></code></pre>
+
+                </div>
+              </div>
+            <p>Provides service instances lookup.</p>
+<h3 id='threading' class='heading'>Threading</h3>
+
+<p><code>ServiceDiscovery</code> implementations <strong>MUST be thread-safe</strong>.</p>
+
+              <div class="slightly-smaller">
+                <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery.swift#L25-L65">Show on GitHub</a>
+              </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-content">
+            <div class="task-group">
+              <ul class="item-container">
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAP0A0Qa"></a>
+                    <a name="//apple_ref/swift/Alias/Service" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAP0A0Qa">Service</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Service identity type</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">associatedtype</span> <span class="kt">Service</span> <span class="p">:</span> <span class="kt">Hashable</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery.swift#L27">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAP8InstanceQa"></a>
+                    <a name="//apple_ref/swift/Alias/Instance" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAP8InstanceQa">Instance</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Service instance type</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">associatedtype</span> <span class="kt">Instance</span> <span class="p">:</span> <span class="kt">Hashable</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery.swift#L29">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAP20defaultLookupTimeout8Dispatch0F12TimeIntervalOvp"></a>
+                    <a name="//apple_ref/swift/Property/defaultLookupTimeout" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAP20defaultLookupTimeout8Dispatch0F12TimeIntervalOvp">defaultLookupTimeout</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Default timeout for lookup.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="k">var</span> <span class="nv">defaultLookupTimeout</span><span class="p">:</span> <span class="kt">DispatchTimeInterval</span> <span class="p">{</span> <span class="k">get</span> <span class="p">}</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery.swift#L32">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAP6lookup_8deadline8callbacky0A0Qz_8Dispatch0F4TimeVSgys6ResultOySay8InstanceQzGs5Error_pGctF"></a>
+                    <a name="//apple_ref/swift/Method/lookup(_:deadline:callback:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAP6lookup_8deadline8callbacky0A0Qz_8Dispatch0F4TimeVSgys6ResultOySay8InstanceQzGs5Error_pGctF">lookup(_:<wbr>deadline:<wbr>callback:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Performs a lookup for the given service&rsquo;s instances. The result will be sent to <code>callback</code>.</p>
+
+<p><code><a href="../Protocols/ServiceDiscovery.html#/s:16ServiceDiscoveryAAP20defaultLookupTimeout8Dispatch0F12TimeIntervalOvp">defaultLookupTimeout</a></code> will be used to compute <code>deadline</code> in case one is not specified.</p>
+<h3 id='threading' class='heading'>Threading</h3>
+
+<p><code>callback</code> may be invoked on arbitrary threads, as determined by implementation.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">lookup</span><span class="p">(</span><span class="n">_</span> <span class="nv">service</span><span class="p">:</span> <span class="kt"><a href="../Protocols/ServiceDiscovery.html#/s:16ServiceDiscoveryAAP0A0Qa">Service</a></span><span class="p">,</span> <span class="nv">deadline</span><span class="p">:</span> <span class="kt">DispatchTime</span><span class="p">?,</span> <span class="nv">callback</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt">Result</span><span class="o">&lt;</span><span class="p">[</span><span class="kt"><a href="../Protocols/ServiceDiscovery.html#/s:16ServiceDiscoveryAAP8InstanceQa">Instance</a></span><span class="p">],</span> <span class="kt">Error</span><span class="o">&gt;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Void</span><span class="p">)</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div>
+                        <h4>Parameters</h4>
+                        <table class="graybox">
+                          <tbody>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>service</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The service to lookup</p>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>deadline</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>Lookup is considered to have timed out if it does not complete by this time</p>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>callback</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The closure to receive lookup result</p>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery.swift#L46">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAP9subscribe2to6onNext0E8CompleteAA17CancellationTokenC0A0Qz_ys6ResultOySay8InstanceQzGs5Error_pGcyAA16CompletionReasonVctF"></a>
+                    <a name="//apple_ref/swift/Method/subscribe(to:onNext:onComplete:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAP9subscribe2to6onNext0E8CompleteAA17CancellationTokenC0A0Qz_ys6ResultOySay8InstanceQzGs5Error_pGcyAA16CompletionReasonVctF">subscribe(to:<wbr>onNext:<wbr>onComplete:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Subscribes to receive a service&rsquo;s instances whenever they change.</p>
+
+<p>The service&rsquo;s current list of instances will be sent to <code>nextResultHandler</code> when this method is first called. Subsequently,
+<code>nextResultHandler</code> will only be invoked when the <code>service</code>&lsquo;s instances change.</p>
+<h3 id='threading' class='heading'>Threading</h3>
+
+<p><code>nextResultHandler</code> and <code>completionHandler</code> may be invoked on arbitrary threads, as determined by implementation.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">subscribe</span><span class="p">(</span><span class="n">to</span> <span class="nv">service</span><span class="p">:</span> <span class="kt"><a href="../Protocols/ServiceDiscovery.html#/s:16ServiceDiscoveryAAP0A0Qa">Service</a></span><span class="p">,</span> <span class="n">onNext</span> <span class="nv">nextResultHandler</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt">Result</span><span class="o">&lt;</span><span class="p">[</span><span class="kt"><a href="../Protocols/ServiceDiscovery.html#/s:16ServiceDiscoveryAAP8InstanceQa">Instance</a></span><span class="p">],</span> <span class="kt">Error</span><span class="o">&gt;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Void</span><span class="p">,</span> <span class="n">onComplete</span> <span class="nv">completionHandler</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt"><a href="../Structs/CompletionReason.html">CompletionReason</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Void</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Classes/CancellationToken.html">CancellationToken</a></span></code></pre>
+
+                        </div>
+                      </div>
+                      <div>
+                        <h4>Parameters</h4>
+                        <table class="graybox">
+                          <tbody>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>service</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The service to subscribe to</p>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>nextResultHandler</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The closure to receive update result</p>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>completionHandler</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The closure to invoke when the subscription completes (e.g., when the <code>ServiceDiscovery</code> instance exits, etc.),
+        including cancellation requested through <code><a href="../Classes/CancellationToken.html">CancellationToken</a></code>.</p>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div>
+                        <h4>Return Value</h4>
+                        <p>A <code><a href="../Classes/CancellationToken.html">CancellationToken</a></code> instance that can be used to cancel the subscription in the future.</p>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery.swift#L64">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div class="task-group">
+              <div class="task-name-container">
+                <a name="/Map%20and%20filter"></a>
+                <a name="//apple_ref/swift/Section/Map and filter" class="dashAnchor"></a>
+                <div class="section-name-container">
+                  <a class="section-name-link" href="#/Map%20and%20filter"></a>
+                  <h3 class="section-name"><p>Map and filter</p>
+</h3>
+                </div>
+              </div>
+              <ul class="item-container">
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAPAAE11mapInstanceyAA03MapdaB0Cyxqd__Gqd__0D0QzKcSHRd__lF"></a>
+                    <a name="//apple_ref/swift/Method/mapInstance(_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAPAAE11mapInstanceyAA03MapdaB0Cyxqd__Gqd__0D0QzKcSHRd__lF">mapInstance(_:<wbr>)</a>
+                    </code>
+                      <span class="declaration-note">
+                        Extension method
+                      </span>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Creates a new <code>ServiceDiscovery</code> implementation based on this one, transforming the instances according to
+the derived function.</p>
+
+<p>It is not necessarily safe to block in this closure. This closure should not block for safety.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">func</span> <span class="n">mapInstance</span><span class="o">&lt;</span><span class="kt">DerivedInstance</span><span class="o">&gt;</span><span class="p">(</span><span class="n">_</span> <span class="nv">transformer</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt"><a href="../Protocols/ServiceDiscovery.html#/s:16ServiceDiscoveryAAP8InstanceQa">Instance</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">DerivedInstance</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Classes/MapInstanceServiceDiscovery.html">MapInstanceServiceDiscovery</a></span><span class="o">&lt;</span><span class="k">Self</span><span class="p">,</span> <span class="kt">DerivedInstance</span><span class="o">&gt;</span> <span class="k">where</span> <span class="kt">DerivedInstance</span> <span class="p">:</span> <span class="kt">Hashable</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery+Combinators.swift#L22-L24">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAPAAE03mapA011serviceType_AA03MapaaB0Cyxqd__Gqd__m_0A0Qzqd__KctSHRd__lF"></a>
+                    <a name="//apple_ref/swift/Method/mapService(serviceType:_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAPAAE03mapA011serviceType_AA03MapaaB0Cyxqd__Gqd__m_0A0Qzqd__KctSHRd__lF">mapService(serviceType:<wbr>_:<wbr>)</a>
+                    </code>
+                      <span class="declaration-note">
+                        Extension method
+                      </span>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Creates a new <code>ServiceDiscovery</code> implementation based on this one, transforming the services according to
+the derived function.</p>
+
+<p>It is not necessarily safe to block in this closure. This closure should not block for safety.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">func</span> <span class="n">mapService</span><span class="o">&lt;</span><span class="kt">ComputedService</span><span class="p">:</span> <span class="kt">Hashable</span><span class="o">&gt;</span><span class="p">(</span><span class="nv">serviceType</span><span class="p">:</span> <span class="kt">ComputedService</span><span class="o">.</span><span class="k">Type</span> <span class="o">=</span> <span class="kt">ComputedService</span><span class="o">.</span><span class="k">self</span><span class="p">,</span>
+                                                  <span class="n">_</span> <span class="nv">transformer</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt">ComputedService</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Protocols/ServiceDiscovery.html#/s:16ServiceDiscoveryAAP0A0Qa">Service</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Classes/MapServiceServiceDiscovery.html">MapServiceServiceDiscovery</a></span><span class="o">&lt;</span><span class="k">Self</span><span class="p">,</span> <span class="kt">ComputedService</span><span class="o">&gt;</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery+Combinators.swift#L30-L33">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAPAAE14filterInstanceyAA06FilterdaB0CyxGSb0D0QzKcF"></a>
+                    <a name="//apple_ref/swift/Method/filterInstance(_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAPAAE14filterInstanceyAA06FilterdaB0CyxGSb0D0QzKcF">filterInstance(_:<wbr>)</a>
+                    </code>
+                      <span class="declaration-note">
+                        Extension method
+                      </span>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Creates a new <code>ServiceDiscovery</code> implementation based on this one, filtering instances with the given predicate.</p>
+
+<p>It is not necessarily safe to block in this closure. This closure should not block for safety.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">func</span> <span class="nf">filterInstance</span><span class="p">(</span><span class="n">_</span> <span class="nv">predicate</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt"><a href="../Protocols/ServiceDiscovery.html#/s:16ServiceDiscoveryAAP8InstanceQa">Instance</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">Bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Classes/FilterInstanceServiceDiscovery.html">FilterInstanceServiceDiscovery</a></span><span class="o">&lt;</span><span class="k">Self</span><span class="o">&gt;</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/ServiceDiscovery+Combinators.swift#L38-L40">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+      </article>
+    </div>
+    <section class="footer">
+      <p>&copy; 2020 <a class="link" href="https://github.com/apple/swift-service-discovery" target="_blank" rel="external">SwiftServiceDiscovery team</a>. All rights reserved. (Last updated: 2020-10-21)</p>
+      <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external">jazzy ♪♫ v0.13.5</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external">Realm</a> project.</p>
+    </section>
+  </body>
+</div>
+</html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>MapInstanceServiceDiscovery Class Reference</title>
+    <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
+    <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
+    <meta charset="utf-8">
+    <script src="../js/jquery.min.js" defer></script>
+    <script src="../js/jazzy.js" defer></script>
+    
+    <script src="../js/lunr.min.js" defer></script>
+    <script src="../js/typeahead.jquery.js" defer></script>
+    <script src="../js/jazzy.search.js" defer></script>
+  </head>
+  <body>
+
+    <a name="//apple_ref/swift/Class/MapInstanceServiceDiscovery" class="dashAnchor"></a>
+
+    <a title="MapInstanceServiceDiscovery Class Reference"></a>
+
+    <header class="header">
+      <p class="header-col header-col--primary">
+        <a class="header-link" href="../index.html">
+          ServiceDiscovery 0.1.0 Docs
+        </a>
+         (74% documented)
+      </p>
+    
+      <p class="header-col--secondary">
+        <form role="search" action="../search.json">
+          <input type="text" placeholder="Search documentation" data-typeahead>
+        </form>
+      </p>
+    
+        <p class="header-col header-col--secondary">
+          <a class="header-link" href="https://github.com/apple/swift-service-discovery">
+            <img class="header-icon" src="../img/gh.png"/>
+            View on GitHub
+          </a>
+        </p>
+    
+        <p class="header-col header-col--secondary">
+          <a class="header-link" href="dash-feed://https%3A%2F%2Fapple.github.io%2Fswift-service-discovery%2Fdocs%2F0.1.0%2FServiceDiscovery%2Fdocsets%2FServiceDiscovery.xml">
+            <img class="header-icon" src="../img/dash.png"/>
+            Install in Dash
+          </a>
+        </p>
+    </header>
+
+    <p class="breadcrumbs">
+      <a class="breadcrumb" href="../index.html">ServiceDiscovery Reference</a>
+      <img class="carat" src="../img/carat.png" />
+      MapInstanceServiceDiscovery Class Reference
+    </p>
+
+    <div class="content-wrapper">
+      <nav class="navigation">
+        <ul class="nav-groups">
+          <li class="nav-group-name">
+            <a class="nav-group-name-link" href="../Classes.html">Classes</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/AnyServiceDiscovery.html">AnyServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/CancellationToken.html">CancellationToken</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/FilterInstanceServiceDiscovery.html">FilterInstanceServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/InMemoryServiceDiscovery.html">InMemoryServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/InMemoryServiceDiscovery/Configuration.html">– Configuration</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/MapInstanceServiceDiscovery.html">MapInstanceServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/MapServiceServiceDiscovery.html">MapServiceServiceDiscovery</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Classes/ServiceDiscoveryBox.html">ServiceDiscoveryBox</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a class="nav-group-name-link" href="../Enums.html">Enumerations</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Enums/TypeErasedServiceDiscoveryError.html">TypeErasedServiceDiscoveryError</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a class="nav-group-name-link" href="../Protocols.html">Protocols</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Protocols/ServiceDiscovery.html">ServiceDiscovery</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a class="nav-group-name-link" href="../Structs.html">Structures</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Structs/CompletionReason.html">CompletionReason</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Structs/HostPort.html">HostPort</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Structs/LookupError.html">LookupError</a>
+              </li>
+              <li class="nav-group-task">
+                <a class="nav-group-task-link" href="../Structs/ServiceDiscoveryError.html">ServiceDiscoveryError</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+      <article class="main-content">
+
+        <section class="section">
+          <div class="section-content top-matter">
+            <h1>MapInstanceServiceDiscovery</h1>
+              <div class="declaration">
+                <div class="language">
+                  
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kd">class</span> <span class="kt">MapInstanceServiceDiscovery</span><span class="o">&lt;</span><span class="kt">BaseDiscovery</span><span class="p">,</span> <span class="kt">DerivedInstance</span><span class="o">&gt;</span> <span class="k">where</span> <span class="kt">BaseDiscovery</span> <span class="p">:</span> <span class="kt"><a href="../Protocols/ServiceDiscovery.html">ServiceDiscovery</a></span><span class="p">,</span> <span class="kt">DerivedInstance</span> <span class="p">:</span> <span class="kt">Hashable</span></code></pre>
+<pre class="highlight swift"><code><span class="kd">extension</span> <span class="kt">MapInstanceServiceDiscovery</span><span class="p">:</span> <span class="kt"><a href="../Protocols/ServiceDiscovery.html">ServiceDiscovery</a></span></code></pre>
+
+                </div>
+              </div>
+            <p>Undocumented</p>
+
+              <div class="slightly-smaller">
+                <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/MapInstanceServiceDiscovery.swift#L17-L27">Show on GitHub</a>
+              </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-content">
+            <div class="task-group">
+              <ul class="item-container">
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscovery011MapInstanceaB0C20defaultLookupTimeout8Dispatch0H12TimeIntervalOvp"></a>
+                    <a name="//apple_ref/swift/Property/defaultLookupTimeout" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscovery011MapInstanceaB0C20defaultLookupTimeout8Dispatch0H12TimeIntervalOvp">defaultLookupTimeout</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Default timeout for lookup.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="k">var</span> <span class="nv">defaultLookupTimeout</span><span class="p">:</span> <span class="kt">DispatchTimeInterval</span> <span class="p">{</span> <span class="k">get</span> <span class="p">}</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/MapInstanceServiceDiscovery.swift#L31-L33">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAP6lookup_8deadline8callbacky0A0Qz_8Dispatch0F4TimeVSgys6ResultOySay8InstanceQzGs5Error_pGctF"></a>
+                    <a name="//apple_ref/swift/Method/lookup(_:deadline:callback:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAP6lookup_8deadline8callbacky0A0Qz_8Dispatch0F4TimeVSgys6ResultOySay8InstanceQzGs5Error_pGctF">lookup(_:<wbr>deadline:<wbr>callback:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">func</span> <span class="nf">lookup</span><span class="p">(</span><span class="n">_</span> <span class="nv">service</span><span class="p">:</span> <span class="kt">BaseDiscovery</span><span class="o">.</span><span class="kt">Service</span><span class="p">,</span> <span class="nv">deadline</span><span class="p">:</span> <span class="kt">DispatchTime</span><span class="p">?,</span> <span class="nv">callback</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt">Result</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">DerivedInstance</span><span class="p">],</span> <span class="kt">Error</span><span class="o">&gt;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Void</span><span class="p">)</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/MapInstanceServiceDiscovery.swift#L35-L37">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16ServiceDiscoveryAAP9subscribe2to6onNext0E8CompleteAA17CancellationTokenC0A0Qz_ys6ResultOySay8InstanceQzGs5Error_pGcyAA16CompletionReasonVctF"></a>
+                    <a name="//apple_ref/swift/Method/subscribe(to:onNext:onComplete:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16ServiceDiscoveryAAP9subscribe2to6onNext0E8CompleteAA17CancellationTokenC0A0Qz_ys6ResultOySay8InstanceQzGs5Error_pGcyAA16CompletionReasonVctF">subscribe(to:<wbr>onNext:<wbr>onComplete:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">func</span> <span class="nf">subscribe</span><span class="p">(</span><span class="n">to</span> <span class="nv">service</span><span class="p">:</span> <span class="kt">BaseDiscovery</span><span class="o">.</span><span class="kt">Service</span><span class="p">,</span> <span class="n">onNext</span> <span class="nv">nextResultHandler</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt">Result</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">DerivedInstance</span><span class="p">],</span> <span class="kt">Error</span><span class="o">&gt;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Void</span><span class="p">,</span> <span class="n">onComplete</span> <span class="nv">completionHandler</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt"><a href="../Structs/CompletionReason.html">CompletionReason</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Void</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Classes/CancellationToken.html">CancellationToken</a></span></code></pre>
+
+                        </div>
+                      </div>
+                      <div class="slightly-smaller">
+                        <a href="https://github.com/apple/swift-service-discovery/tree/0.1.0/Sources/ServiceDiscovery/MapInstanceServiceDiscovery.swift#L39-L45">Show on GitHub</a>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+      </article>
+    </div>
+    <section class="footer">
+      <p>&copy; 2020 <a class="link" href="https://github.com/apple/swift-service-discovery" target="_blank" rel="external">SwiftServiceDiscovery team</a>. All rights reserved. (Last updated: 2020-10-21)</p>
+      <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external">jazzy ♪♫ v0.13.5</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external">Realm</a> project.</p>
+    </section>
+  </body>
+</div>
+</html>
