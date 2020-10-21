@@ -109,7 +109,7 @@ To become a compatible service discovery backend that all SwiftServiceDiscovery 
 
 #### `lookup`
 
-```
+```swift
 /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
 ///
 /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
@@ -127,7 +127,7 @@ The backend implementation should impose a deadline on when the operation will c
 
 #### `subscribe`
 
-```
+```swift
 /// Subscribes to receive a service's instances whenever they change.
 ///
 /// The service's current list of instances will be sent to `nextResultHandler` when this method is first called. Subsequently,
