@@ -35,6 +35,7 @@ let serviceDiscovery = DNSBasedServiceDiscovery()
 
 As the API has just launched, not many implementations exist yet. If you are interested in implementing one see the "Implementing a service discovery backend" section below explaining how to do so. List of existing SwiftServiceDiscovery API compatible libraries:
 
+- [tuplestream/swift-k8s-service-discovery](https://github.com/tuplestream/swift-k8s-service-discovery) - service discovery using the k8s APIs
 - Your library? Get in touch!
 
 ### Obtaining a service's instances
