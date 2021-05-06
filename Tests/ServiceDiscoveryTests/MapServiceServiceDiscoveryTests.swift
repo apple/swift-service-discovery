@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -43,14 +43,14 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
 
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (service: Int) in self.services[service] }
 
-        let fooResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: computedFooService)
+        let fooResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: self.computedFooService)
         guard case .success(let _fooInstances) = fooResult else {
             return XCTFail("Failed to lookup instances for service[\(self.computedFooService)]")
         }
         XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.computedFooService)] to have 1 instance, got \(_fooInstances.count)")
         XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.computedFooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
 
-        let barResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: computedBarService)
+        let barResult = try ensureResult(serviceDiscovery: serviceDiscovery, service: self.computedBarService)
         guard case .success(let _barInstances) = barResult else {
             return XCTFail("Failed to lookup instances for service[\(self.computedBarService)]")
         }
@@ -72,6 +72,85 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
         guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
             return XCTFail("Expected LookupError.unknownService, got \(error)")
         }
+    }
+
+    func test_async_lookup() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        var configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
+        configuration.register(service: self.barService, instances: self.barInstances)
+
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (service: Int) in self.services[service] }
+
+        runAsyncAndWaitFor { expectation in
+            do {
+                let _fooInstances = try await serviceDiscovery.lookup(self.computedFooService, deadline: nil)
+
+                XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.computedFooService)] to have 1 instance, got \(_fooInstances.count)")
+                XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.computedFooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+                expectation.fulfill()
+            } catch {
+                XCTFail("Failed to lookup instances for service[\(self.computedFooService)]: \(error)")
+            }
+        }
+
+        runAsyncAndWaitFor { expectation in
+            do {
+                let _barInstances = try await serviceDiscovery.lookup(self.computedBarService, deadline: nil)
+
+                XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.computedBarService)] to have 2 instances, got \(_barInstances.count)")
+                XCTAssertEqual(_barInstances, self.barInstances, "Expected service[\(self.computedBarService)] to have instances \(self.barInstances), got \(_barInstances)")
+                expectation.fulfill()
+            } catch {
+                XCTFail("Failed to lookup instances for service[\(self.computedBarService)] \(error)")
+            }
+        }
+        #endif
+    }
+
+    func test_async_lookup_errorIfServiceUnknown() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        let unknownService = "unknown-service"
+        let unknownComputedService = 3
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService(serviceType: Int.self) { _ in unknownService }
+
+        let result = try ensureResult(serviceDiscovery: serviceDiscovery, service: unknownComputedService)
+        guard case .failure(let error) = result else {
+            return XCTFail("Lookup instances for service[\(unknownComputedService)] should return an error")
+        }
+        guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
+            return XCTFail("Expected LookupError.unknownService, got \(error)")
+        }
+
+        runAsyncAndWaitFor { expectation in
+            do {
+                _ = try await serviceDiscovery.lookup(unknownComputedService, deadline: nil)
+                XCTFail("Lookup instances for service[\(unknownComputedService)] should return an error")
+            } catch {
+                guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    return XCTFail("Expected LookupError.unknownService, got \(error)")
+                }
+                expectation.fulfill()
+            }
+        }
+        #endif
     }
 
     func test_subscribe() throws {
@@ -261,7 +340,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
         let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (_: Int) -> String in throw TestError.error }
 
-        let result = try self.ensureResult(serviceDiscovery: serviceDiscovery, service: self.computedFooService)
+        let result = try ensureResult(serviceDiscovery: serviceDiscovery, service: self.computedFooService)
         guard case .failure(let err) = result else {
             XCTFail("Expected failure, got \(result)")
             return
@@ -307,24 +386,6 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService(serviceType: Int.self) { service in self.services[service] }
         XCTAssertTrue(Self.compareTimeInterval(configuration.defaultLookupTimeout, serviceDiscovery.defaultLookupTimeout), "\(configuration.defaultLookupTimeout) does not match \(serviceDiscovery.defaultLookupTimeout)")
-    }
-
-    private func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Service) throws -> Result<[SD.Instance], Error> {
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: Result<[SD.Instance], Error>?
-
-        serviceDiscovery.lookup(service, deadline: nil) {
-            result = $0
-            semaphore.signal()
-        }
-
-        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
-
-        guard let _result = result else {
-            throw LookupError.timedOut
-        }
-
-        return _result
     }
 
     private static func compareTimeInterval(_ lhs: DispatchTimeInterval, _ rhs: DispatchTimeInterval) -> Bool {

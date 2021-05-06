@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
+
 @testable import ServiceDiscovery
 import ServiceDiscoveryHelpers
 import XCTest
@@ -66,6 +67,76 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
             return XCTFail("Expected LookupError.unknownService, got \(error)")
         }
+    }
+
+    func test_async_lookup() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        var configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        configuration.register(service: self.barService, instances: self.barInstances)
+
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+
+        runAsyncAndWaitFor { expectation in
+            do {
+                let _fooInstances = try await serviceDiscovery.lookup(self.fooService)
+
+                XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+                XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+                expectation.fulfill()
+            } catch {
+                XCTFail("Failed to lookup instances for service[\(self.fooService)]: \(error)")
+            }
+        }
+
+        runAsyncAndWaitFor { expectation in
+            do {
+                let _barInstances = try await serviceDiscovery.lookup(self.barService)
+
+                XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.barService)] to have 2 instances, got \(_barInstances.count)")
+                XCTAssertEqual(_barInstances, self.barInstances, "Expected service[\(self.barService)] to have instances \(self.barInstances), got \(_barInstances)")
+                expectation.fulfill()
+            } catch {
+                XCTFail("Failed to lookup instances for service[\(self.barService)] \(error)")
+            }
+        }
+        #endif
+    }
+
+    func test_async_lookup_errorIfServiceUnknown() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        let unknownService = "unknown-service"
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
+        let serviceDiscovery = InMemoryServiceDiscovery<Service, Instance>(configuration: configuration)
+
+        runAsyncAndWaitFor { expectation in
+            do {
+                _ = try await serviceDiscovery.lookup(unknownService)
+                XCTFail("Lookup instances for service[\(unknownService)] should return an error")
+            } catch {
+                guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    return XCTFail("Expected LookupError.unknownService, got \(error)")
+                }
+                expectation.fulfill()
+            }
+        }
+        #endif
     }
 
     func test_subscribe() throws {
@@ -241,23 +312,5 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         XCTAssertEqual(registerCounter.load(), times, "Expected register to succeed \(times) times")
         XCTAssertEqual(lookupCounter.load(), times, "Expected lookup callback to be called \(times) times")
-    }
-
-    private func ensureResult(serviceDiscovery: InMemoryServiceDiscovery<Service, Instance>, service: Service) throws -> Result<[Instance], Error> {
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: Result<[Instance], Error>?
-
-        serviceDiscovery.lookup(service) {
-            result = $0
-            semaphore.signal()
-        }
-
-        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
-
-        guard let _result = result else {
-            throw LookupError.timedOut
-        }
-
-        return _result
     }
 }

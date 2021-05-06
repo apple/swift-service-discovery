@@ -106,6 +106,106 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         XCTAssertNoThrow(try boxedServiceDiscovery.unwrapAs(InMemoryServiceDiscovery<Service, Instance>.self))
     }
 
+    func test_AsyncServiceDiscoveryBox_lookup() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let boxedServiceDiscovery = AsyncServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
+
+        runAsyncAndWaitFor { expectation in
+            do {
+                let _fooInstances = try await boxedServiceDiscovery.lookup(self.fooService)
+
+                XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+                XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+                expectation.fulfill()
+            } catch {
+                XCTFail("Failed to lookup instances for service[\(self.fooService)]: \(error)")
+            }
+        }
+        #endif
+    }
+
+    func test_AsyncServiceDiscoveryBox_subscribe() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let boxedServiceDiscovery = AsyncServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let resultCounter = SDAtomic<Int>(0)
+
+        // Two results are expected:
+        // Result #1: LookupError.unknownService because bar-service is not registered
+        // Result #2: Later we register bar-service and that should notify the subscriber
+        boxedServiceDiscovery.subscribe(
+            to: self.barService,
+            onNext: { result in
+                resultCounter.add(1)
+
+                guard resultCounter.load() <= 2 else {
+                    return XCTFail("Expected to receive result 2 times only")
+                }
+
+                switch result {
+                case .failure(let error):
+                    guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                    }
+                case .success(let instances):
+                    guard resultCounter.load() == 2 else {
+                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
+                    }
+                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                    semaphore.signal()
+                }
+            }
+        )
+
+        // Allow time for first result of `subscribe`
+        usleep(100_000)
+        serviceDiscovery.register(self.barService, instances: self.barInstances)
+
+        _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
+
+        XCTAssertEqual(resultCounter.load(), 2, "Expected to receive result 2 times, got \(resultCounter.load())")
+        #endif
+    }
+
+    func test_AsyncServiceDiscoveryBox_unwrap() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let boxedServiceDiscovery = AsyncServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
+
+        XCTAssertNoThrow(try boxedServiceDiscovery.unwrapAs(InMemoryServiceDiscovery<Service, Instance>.self))
+        #endif
+    }
+
     func test_AnyServiceDiscovery_lookup() throws {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
@@ -178,5 +278,105 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
         XCTAssertNoThrow(try anyServiceDiscovery.unwrapAs(InMemoryServiceDiscovery<Service, Instance>.self))
+    }
+
+    func test_AnyAsyncServiceDiscovery_lookup() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let anyServiceDiscovery = AnyAsyncServiceDiscovery(serviceDiscovery)
+
+        runAsyncAndWaitFor { expectation in
+            do {
+                let _fooInstances: [Instance] = try await anyServiceDiscovery.lookupAndUnwrap(self.fooService)
+
+                XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+                XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+                expectation.fulfill()
+            } catch {
+                XCTFail("Failed to lookup instances for service[\(self.fooService)]: \(error)")
+            }
+        }
+        #endif
+    }
+
+    func test_AnyAsyncServiceDiscovery_subscribe() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let anyServiceDiscovery = AnyAsyncServiceDiscovery(serviceDiscovery)
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let resultCounter = SDAtomic<Int>(0)
+
+        // Two results are expected:
+        // Result #1: LookupError.unknownService because bar-service is not registered
+        // Result #2: Later we register bar-service and that should notify the subscriber
+        anyServiceDiscovery.subscribe(
+            to: self.barService,
+            onNext: { result in
+                resultCounter.add(1)
+
+                guard resultCounter.load() <= 2 else {
+                    return XCTFail("Expected to receive result 2 times only")
+                }
+
+                switch result {
+                case .failure(let error):
+                    guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                    }
+                case .success(let instances):
+                    guard resultCounter.load() == 2 else {
+                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
+                    }
+                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                    semaphore.signal()
+                }
+            }
+        )
+
+        // Allow time for first result of `subscribe`
+        usleep(100_000)
+        serviceDiscovery.register(self.barService, instances: self.barInstances)
+
+        _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
+
+        XCTAssertEqual(resultCounter.load(), 2, "Expected to receive result 2 times, got \(resultCounter.load())")
+        #endif
+    }
+
+    func test_AnyAsyncServiceDiscovery_unwrap() throws {
+        #if compiler(<5.2)
+        return
+        #elseif compiler(<5.5)
+        throw XCTSkip("async/await not supported")
+        #else
+        guard #available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *) else {
+            throw XCTSkip("async/await not supported")
+        }
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let anyServiceDiscovery = AnyAsyncServiceDiscovery(serviceDiscovery)
+
+        XCTAssertNoThrow(try anyServiceDiscovery.unwrapAs(InMemoryServiceDiscovery<Service, Instance>.self))
+        #endif
     }
 }

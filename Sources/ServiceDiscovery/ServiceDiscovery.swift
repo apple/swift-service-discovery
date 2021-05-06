@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -61,8 +61,57 @@ public protocol ServiceDiscovery: AnyObject {
     ///                 including cancellation requested through `CancellationToken`.
     ///
     /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
-    func subscribe(to service: Service, onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken
+    func subscribe(to service: Service,
+                   onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
+                   onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken
 }
+
+// MARK: - Async service discovery protocol
+
+#if compiler(>=5.5)
+/// Provides service instances lookup.
+@available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *)
+public protocol AsyncServiceDiscovery: AnyObject {
+    /// Service identity type
+    associatedtype Service: Hashable
+    /// Service instance type
+    associatedtype Instance: Hashable
+
+    /// Default timeout for lookup.
+    var defaultLookupTimeout: DispatchTimeInterval { get }
+
+    /// Performs a lookup for the given service's instances.
+    ///
+    /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
+    ///
+    /// - Parameters:
+    ///   - service: The service to lookup
+    ///   - deadline: Lookup is considered to have timed out if it does not complete by this time
+    ///
+    /// - Returns: The service's instances. An error is thrown in case `service` is unknown.
+    func lookup(_ service: Service, deadline: DispatchTime?) async throws -> [Instance]
+
+    /// Subscribes to receive a service's instances whenever they change.
+    ///
+    /// The service's current list of instances will be sent to `nextResultHandler` when this method is first called. Subsequently,
+    /// `nextResultHandler` will only be invoked when the `service`'s instances change.
+    ///
+    /// ### Threading
+    ///
+    /// `nextResultHandler` and `completionHandler` may be invoked on arbitrary threads, as determined by implementation.
+    ///
+    /// - Parameters:
+    ///   - service: The service to subscribe to
+    ///   - nextResultHandler: The closure to receive update result
+    ///   - completionHandler: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
+    ///                 including cancellation requested through `CancellationToken`.
+    ///
+    /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
+    func subscribe(to service: Service,
+                   onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
+                   onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken
+}
+#endif
 
 // MARK: - Subscription
 

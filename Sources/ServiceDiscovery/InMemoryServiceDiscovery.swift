@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -142,6 +142,38 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 }
 
+#if compiler(>=5.5)
+@available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *)
+extension InMemoryServiceDiscovery: AsyncServiceDiscovery {
+    public func lookup(_ service: Service, deadline: DispatchTime? = nil) async throws -> [Instance] {
+        guard !self.isShutdown else {
+            throw ServiceDiscoveryError.unavailable
+        }
+
+        let instancesHandle: Task.Handle<[Instance], Error> = detach {
+            let instances = self.serviceInstancesLock.withLock {
+                self.serviceInstances[service]
+            }
+            // This task is cancelled at deadline
+            guard !Task.isCancelled else {
+                throw LookupError.timedOut
+            }
+            guard let instances = instances else {
+                throw LookupError.unknownService
+            }
+            return instances
+        }
+
+        // Timeout handler
+        self.queue.asyncAfter(deadline: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) {
+            instancesHandle.cancel()
+        }
+
+        return try await instancesHandle.get()
+    }
+}
+#endif
+
 extension InMemoryServiceDiscovery {
     public struct Configuration {
         /// Default configuration
@@ -173,11 +205,11 @@ extension InMemoryServiceDiscovery {
 // MARK: - NSLock extensions
 
 extension NSLock {
-    fileprivate func withLock(_ body: () -> Void) {
+    fileprivate func withLock<Value>(_ body: () throws -> Value) rethrows -> Value {
         self.lock()
         defer {
             self.unlock()
         }
-        body()
+        return try body()
     }
 }
