@@ -89,25 +89,23 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
 
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (service: Int) in self.services[service] }
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 let _fooInstances = try await serviceDiscovery.lookup(self.computedFooService, deadline: nil)
 
                 XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.computedFooService)] to have 1 instance, got \(_fooInstances.count)")
                 XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.computedFooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
-                expectation.fulfill()
             } catch {
                 XCTFail("Failed to lookup instances for service[\(self.computedFooService)]: \(error)")
             }
         }
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 let _barInstances = try await serviceDiscovery.lookup(self.computedBarService, deadline: nil)
 
                 XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.computedBarService)] to have 2 instances, got \(_barInstances.count)")
                 XCTAssertEqual(_barInstances, self.barInstances, "Expected service[\(self.computedBarService)] to have instances \(self.barInstances), got \(_barInstances)")
-                expectation.fulfill()
             } catch {
                 XCTFail("Failed to lookup instances for service[\(self.computedBarService)] \(error)")
             }
@@ -139,7 +137,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
             return XCTFail("Expected LookupError.unknownService, got \(error)")
         }
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 _ = try await serviceDiscovery.lookup(unknownComputedService, deadline: nil)
                 XCTFail("Lookup instances for service[\(unknownComputedService)] should return an error")
@@ -147,7 +145,6 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
                 guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
                     return XCTFail("Expected LookupError.unknownService, got \(error)")
                 }
-                expectation.fulfill()
             }
         }
         #endif

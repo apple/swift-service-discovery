@@ -84,25 +84,23 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 let _fooInstances = try await serviceDiscovery.lookup(self.fooService)
 
                 XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
                 XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
-                expectation.fulfill()
             } catch {
                 XCTFail("Failed to lookup instances for service[\(self.fooService)]: \(error)")
             }
         }
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 let _barInstances = try await serviceDiscovery.lookup(self.barService)
 
                 XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.barService)] to have 2 instances, got \(_barInstances.count)")
                 XCTAssertEqual(_barInstances, self.barInstances, "Expected service[\(self.barService)] to have instances \(self.barInstances), got \(_barInstances)")
-                expectation.fulfill()
             } catch {
                 XCTFail("Failed to lookup instances for service[\(self.barService)] \(error)")
             }
@@ -125,7 +123,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
         let serviceDiscovery = InMemoryServiceDiscovery<Service, Instance>(configuration: configuration)
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 _ = try await serviceDiscovery.lookup(unknownService)
                 XCTFail("Lookup instances for service[\(unknownService)] should return an error")
@@ -133,7 +131,6 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
                 guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
                     return XCTFail("Expected LookupError.unknownService, got \(error)")
                 }
-                expectation.fulfill()
             }
         }
         #endif

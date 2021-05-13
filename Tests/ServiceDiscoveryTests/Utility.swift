@@ -39,11 +39,13 @@ extension XCTestCase {
 
 #if compiler(>=5.5)
 extension XCTestCase {
+    // TODO: remove once XCTest supports async functions
     @available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *)
-    func runAsyncAndWaitFor(_ closure: @escaping (_ finished: XCTestExpectation) async -> Void, _ timeout: TimeInterval = 1.0) {
+    func runAsyncAndWaitFor(_ closure: @escaping () async -> Void, _ timeout: TimeInterval = 1.0) {
         let finished = expectation(description: "finished")
         detach {
-            await closure(finished)
+            await closure()
+            finished.fulfill()
         }
         wait(for: [finished], timeout: timeout)
     }

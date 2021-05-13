@@ -120,13 +120,12 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let boxedServiceDiscovery = AsyncServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 let _fooInstances = try await boxedServiceDiscovery.lookup(self.fooService)
 
                 XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
                 XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
-                expectation.fulfill()
             } catch {
                 XCTFail("Failed to lookup instances for service[\(self.fooService)]: \(error)")
             }
@@ -294,13 +293,12 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let anyServiceDiscovery = AnyAsyncServiceDiscovery(serviceDiscovery)
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 let _fooInstances: [Instance] = try await anyServiceDiscovery.lookupAndUnwrap(self.fooService)
 
                 XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
                 XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
-                expectation.fulfill()
             } catch {
                 XCTFail("Failed to lookup instances for service[\(self.fooService)]: \(error)")
             }

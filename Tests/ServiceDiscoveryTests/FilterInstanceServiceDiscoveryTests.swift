@@ -92,25 +92,23 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
 
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).filterInstance { [7001, 9001, 9002].contains($0.port) }
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 let _fooInstances = try await serviceDiscovery.lookup(self.fooService, deadline: nil)
 
                 XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
                 XCTAssertEqual(_fooInstances, self.fooDerivedInstances, "Expected service[\(self.fooService)] to have instances \(self.fooDerivedInstances), got \(_fooInstances)")
-                expectation.fulfill()
             } catch {
                 XCTFail("Failed to lookup instances for service[\(self.fooService)]: \(error)")
             }
         }
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 let _barInstances = try await serviceDiscovery.lookup(self.barService, deadline: nil)
 
                 XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.barService)] to have 2 instances, got \(_barInstances.count)")
                 XCTAssertEqual(_barInstances, self.barDerivedInstances, "Expected service[\(self.barService)] to have instances \(self.barDerivedInstances), got \(_barInstances)")
-                expectation.fulfill()
             } catch {
                 XCTFail("Failed to lookup instances for service[\(self.barService)] \(error)")
             }
@@ -133,7 +131,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).filterInstance { $0.port == 7001 }
 
-        runAsyncAndWaitFor { expectation in
+        runAsyncAndWaitFor {
             do {
                 _ = try await serviceDiscovery.lookup(unknownService, deadline: nil)
                 XCTFail("Lookup instances for service[\(unknownService)] should return an error")
@@ -141,7 +139,6 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
                 guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
                     return XCTFail("Expected LookupError.unknownService, got \(error)")
                 }
-                expectation.fulfill()
             }
         }
         #endif
