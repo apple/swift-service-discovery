@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -11,6 +11,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+
 import Dispatch
 import ServiceDiscoveryHelpers
 
@@ -65,3 +66,13 @@ extension MapServiceServiceDiscovery: ServiceDiscovery {
         )
     }
 }
+
+#if compiler(>=5.5)
+@available(macOS 9999, iOS 9999, watchOS 9999, tvOS 9999, *)
+extension MapServiceServiceDiscovery: AsyncServiceDiscovery where BaseDiscovery: AsyncServiceDiscovery {
+    public func lookup(_ service: ComputedService, deadline: DispatchTime?) async throws -> [BaseDiscovery.Instance] {
+        let derivedService = try self.transformer(service)
+        return try await self.originalSD.lookup(derivedService, deadline: deadline)
+    }
+}
+#endif
