@@ -14,6 +14,7 @@ let package = Package(
         .target(name: "ServiceDiscoveryHelpers", dependencies: ["CServiceDiscoveryHelpers"]),
 
         .target(name: "ServiceDiscovery", dependencies: ["ServiceDiscoveryHelpers", "Logging"]),
+        .target(name: "AsyncAwaitServiceDiscovery", dependencies: ["ServiceDiscoveryHelpers", "Logging"]),
 
         .testTarget(name: "ServiceDiscoveryHelpersTests", dependencies: ["ServiceDiscoveryHelpers"]),
         .testTarget(name: "ServiceDiscoveryTests", dependencies: ["ServiceDiscovery"]),

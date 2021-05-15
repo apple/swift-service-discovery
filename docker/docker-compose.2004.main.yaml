@@ -7,6 +7,12 @@ services:
     build:
       args:
         base_image: "swiftlang/swift:nightly-main-focal"
+        
+  build:
+    image: swift-service-discovery:20.04-main
+    environment: []
+      #- SANITIZER_ARG=--sanitize=thread
+    command: /bin/bash -xcl "swift build -Xswiftc -warnings-as-errors $${SANITIZER_ARG-} -Xswiftc -Xfrontend -Xswiftc -enable-experimental-concurrency"
 
   test:
     image: swift-service-discovery:20.04-main
