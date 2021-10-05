@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Atomics
 import Dispatch
 @testable import ServiceDiscovery
-import ServiceDiscoveryHelpers
 import XCTest
 
 class TypeErasedServiceDiscoveryTests: XCTestCase {
@@ -60,7 +60,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
         let semaphore = DispatchSemaphore(value: 0)
-        let resultCounter = SDAtomic<Int>(0)
+        let resultCounter = ManagedAtomic<Int>(0)
 
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
@@ -68,20 +68,20 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         boxedServiceDiscovery.subscribe(
             to: self.barService,
             onNext: { result in
-                resultCounter.add(1)
+                resultCounter.wrappingIncrement(ordering: .relaxed)
 
-                guard resultCounter.load() <= 2 else {
+                guard resultCounter.load(ordering: .relaxed) <= 2 else {
                     return XCTFail("Expected to receive result 2 times only")
                 }
 
                 switch result {
                 case .failure(let error):
-                    guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    guard resultCounter.load(ordering: .relaxed) == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
                         return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
                     }
                 case .success(let instances):
-                    guard resultCounter.load() == 2 else {
-                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
+                    guard resultCounter.load(ordering: .relaxed) == 2 else {
+                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load(ordering: .relaxed)) got \(instances)")
                     }
                     XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
                     semaphore.signal()
@@ -95,7 +95,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
-        XCTAssertEqual(resultCounter.load(), 2, "Expected to receive result 2 times, got \(resultCounter.load())")
+        XCTAssertEqual(resultCounter.load(ordering: .relaxed), 2, "Expected to receive result 2 times, got \(resultCounter.load(ordering: .relaxed))")
     }
 
     func test_ServiceDiscoveryBox_unwrap() throws {
@@ -134,7 +134,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
         let semaphore = DispatchSemaphore(value: 0)
-        let resultCounter = SDAtomic<Int>(0)
+        let resultCounter = ManagedAtomic<Int>(0)
 
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
@@ -142,20 +142,20 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         anyServiceDiscovery.subscribe(
             to: self.barService,
             onNext: { result in
-                resultCounter.add(1)
+                resultCounter.wrappingIncrement(ordering: .relaxed)
 
-                guard resultCounter.load() <= 2 else {
+                guard resultCounter.load(ordering: .relaxed) <= 2 else {
                     return XCTFail("Expected to receive result 2 times only")
                 }
 
                 switch result {
                 case .failure(let error):
-                    guard resultCounter.load() == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
+                    guard resultCounter.load(ordering: .relaxed) == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
                         return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
                     }
                 case .success(let instances):
-                    guard resultCounter.load() == 2 else {
-                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load()) got \(instances)")
+                    guard resultCounter.load(ordering: .relaxed) == 2 else {
+                        return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load(ordering: .relaxed)) got \(instances)")
                     }
                     XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
                     semaphore.signal()
@@ -169,7 +169,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
-        XCTAssertEqual(resultCounter.load(), 2, "Expected to receive result 2 times, got \(resultCounter.load())")
+        XCTAssertEqual(resultCounter.load(ordering: .relaxed), 2, "Expected to receive result 2 times, got \(resultCounter.load(ordering: .relaxed))")
     }
 
     func test_AnyServiceDiscovery_unwrap() throws {

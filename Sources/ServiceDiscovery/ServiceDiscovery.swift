@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Atomics
 import Dispatch
-import ServiceDiscoveryHelpers
 
 // MARK: - Service discovery protocol
 
@@ -68,23 +68,23 @@ public protocol ServiceDiscovery: AnyObject {
 
 /// Enables cancellation of service discovery subscription.
 public class CancellationToken {
-    private let _isCancelled: SDAtomic<Bool>
+    private let _isCancelled: ManagedAtomic<Bool>
     private let _completionHandler: (CompletionReason) -> Void
 
     /// Returns `true` if the subscription has been cancelled.
     public var isCancelled: Bool {
-        self._isCancelled.load()
+        self._isCancelled.load(ordering: .acquiring)
     }
 
     /// Creates a new token.
     public init(isCancelled: Bool = false, completionHandler: @escaping (CompletionReason) -> Void = { _ in }) {
-        self._isCancelled = SDAtomic<Bool>(isCancelled)
+        self._isCancelled = ManagedAtomic<Bool>(isCancelled)
         self._completionHandler = completionHandler
     }
 
     /// Cancels the subscription.
     public func cancel() {
-        guard self._isCancelled.compareAndExchange(expected: false, desired: true) else { return }
+        guard self._isCancelled.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged else { return }
         self._completionHandler(.cancellationRequested)
     }
 }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Atomics
 import Dispatch
 import Foundation // for NSLock
-import ServiceDiscoveryHelpers
 
 /// Provides lookup for service instances that are stored in-memory.
 public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
@@ -32,10 +32,10 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self.configuration.defaultLookupTimeout
     }
 
-    private let _isShutdown = SDAtomic<Bool>(false)
+    private let _isShutdown = ManagedAtomic<Bool>(false)
 
     public var isShutdown: Bool {
-        self._isShutdown.load()
+        self._isShutdown.load(ordering: .acquiring)
     }
 
     public init(configuration: Configuration, queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)) {
@@ -50,7 +50,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
             return
         }
 
-        let isDone = SDAtomic<Bool>(false)
+        let isDone = ManagedAtomic<Bool>(false)
 
         let lookupWorkItem = DispatchWorkItem {
             var result: Result<[Instance], Error>! // !-safe because if-else block always set `result`
@@ -63,7 +63,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
                 }
             }
 
-            if isDone.compareAndExchange(expected: false, desired: true) {
+            if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
                 callback(result)
             }
         }
@@ -74,7 +74,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self.queue.asyncAfter(deadline: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) {
             lookupWorkItem.cancel()
 
-            if isDone.compareAndExchange(expected: false, desired: true) {
+            if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
                 callback(.failure(LookupError.timedOut))
             }
         }
@@ -124,7 +124,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     public func shutdown() {
-        guard self._isShutdown.compareAndExchange(expected: false, desired: true) else { return }
+        guard self._isShutdown.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged else { return }
 
         self.serviceSubscriptionsLock.withLock {
             self.serviceSubscriptions.values.forEach { subscriptions in
@@ -142,8 +142,8 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 }
 
-extension InMemoryServiceDiscovery {
-    public struct Configuration {
+public extension InMemoryServiceDiscovery {
+    struct Configuration {
         /// Default configuration
         public static var `default`: Configuration {
             .init()
@@ -172,8 +172,8 @@ extension InMemoryServiceDiscovery {
 
 // MARK: - NSLock extensions
 
-extension NSLock {
-    fileprivate func withLock(_ body: () -> Void) {
+private extension NSLock {
+    func withLock(_ body: () -> Void) {
         self.lock()
         defer {
             self.unlock()
