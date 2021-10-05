@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -30,8 +30,7 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
     }
 
     public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl)
-        where ServiceDiscoveryImpl.Service == Service, ServiceDiscoveryImpl.Instance == Instance
-    {
+        where ServiceDiscoveryImpl.Service == Service, ServiceDiscoveryImpl.Instance == Instance {
         self._underlying = serviceDiscovery
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
 
