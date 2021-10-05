@@ -1,4 +1,4 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.3
 import PackageDescription
 
 let package = Package(
@@ -12,8 +12,8 @@ let package = Package(
     ],
     targets: [
         .target(name: "ServiceDiscovery", dependencies: [
-            "Atomics",
-            "Logging",
+            .product(name: "Atomics", package: "swift-atomics"),
+            .product(name: "Logging", package: "swift-log"),
         ]),
 
         .testTarget(name: "ServiceDiscoveryTests", dependencies: ["ServiceDiscovery"]),
