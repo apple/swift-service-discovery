@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -14,12 +14,12 @@
 
 // MARK: - Map and filter
 
-extension ServiceDiscovery {
+public extension ServiceDiscovery {
     /// Creates a new `ServiceDiscovery` implementation based on this one, transforming the instances according to
     /// the derived function.
     ///
     /// It is not necessarily safe to block in this closure. This closure should not block for safety.
-    public func mapInstance<DerivedInstance: Hashable>(_ transformer: @escaping (Instance) throws -> DerivedInstance) -> MapInstanceServiceDiscovery<Self, DerivedInstance> {
+    func mapInstance<DerivedInstance: Hashable>(_ transformer: @escaping (Instance) throws -> DerivedInstance) -> MapInstanceServiceDiscovery<Self, DerivedInstance> {
         MapInstanceServiceDiscovery(originalSD: self, transformer: transformer)
     }
 
@@ -27,15 +27,16 @@ extension ServiceDiscovery {
     /// the derived function.
     ///
     /// It is not necessarily safe to block in this closure. This closure should not block for safety.
-    public func mapService<ComputedService: Hashable>(serviceType: ComputedService.Type = ComputedService.self,
-                                                      _ transformer: @escaping (ComputedService) throws -> Service) -> MapServiceServiceDiscovery<Self, ComputedService> {
+    func mapService<ComputedService: Hashable>(serviceType: ComputedService.Type = ComputedService.self,
+                                               _ transformer: @escaping (ComputedService) throws -> Service) -> MapServiceServiceDiscovery<Self, ComputedService>
+    {
         MapServiceServiceDiscovery(originalSD: self, transformer: transformer)
     }
 
     /// Creates a new `ServiceDiscovery` implementation based on this one, filtering instances with the given predicate.
     ///
     /// It is not necessarily safe to block in this closure. This closure should not block for safety.
-    public func filterInstance(_ predicate: @escaping (Instance) throws -> Bool) -> FilterInstanceServiceDiscovery<Self> {
+    func filterInstance(_ predicate: @escaping (Instance) throws -> Bool) -> FilterInstanceServiceDiscovery<Self> {
         FilterInstanceServiceDiscovery(originalSD: self, predicate: predicate)
     }
 }

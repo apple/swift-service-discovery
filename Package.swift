@@ -7,15 +7,15 @@ let package = Package(
         .library(name: "ServiceDiscovery", targets: ["ServiceDiscovery"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.2.0"),
+        .package(url: "https://github.com/apple/swift-atomics", from: "1.0.2"),
+        .package(url: "https://github.com/apple/swift-log", from: "1.2.0"),
     ],
     targets: [
-        .target(name: "CServiceDiscoveryHelpers", dependencies: []),
-        .target(name: "ServiceDiscoveryHelpers", dependencies: ["CServiceDiscoveryHelpers"]),
+        .target(name: "ServiceDiscovery", dependencies: [
+            "Atomics",
+            "Logging",
+        ]),
 
-        .target(name: "ServiceDiscovery", dependencies: ["ServiceDiscoveryHelpers", "Logging"]),
-
-        .testTarget(name: "ServiceDiscoveryHelpersTests", dependencies: ["ServiceDiscoveryHelpers"]),
         .testTarget(name: "ServiceDiscoveryTests", dependencies: ["ServiceDiscovery"]),
     ]
 )

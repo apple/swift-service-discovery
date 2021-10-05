@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020-2021 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -11,8 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+
 import Dispatch
-import ServiceDiscoveryHelpers
 
 public final class MapInstanceServiceDiscovery<BaseDiscovery: ServiceDiscovery, DerivedInstance: Hashable> {
     typealias Transformer = (BaseDiscovery.Instance) throws -> DerivedInstance
