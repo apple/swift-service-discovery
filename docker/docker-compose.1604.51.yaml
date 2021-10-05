@@ -13,6 +13,7 @@ services:
     image: swift-service-discovery:16.04-5.1
     environment:
       - SANITIZER_ARG=--sanitize=thread
+    command: /bin/bash -xcl "swift test --enable-test-discovery -Xswiftc -warnings-as-errors $${SANITIZER_ARG-}"
 
   shell:
     image: swift-service-discovery:16.04-5.1
