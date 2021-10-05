@@ -28,8 +28,7 @@ public extension ServiceDiscovery {
     ///
     /// It is not necessarily safe to block in this closure. This closure should not block for safety.
     func mapService<ComputedService: Hashable>(serviceType: ComputedService.Type = ComputedService.self,
-                                               _ transformer: @escaping (ComputedService) throws -> Service) -> MapServiceServiceDiscovery<Self, ComputedService>
-    {
+                                               _ transformer: @escaping (ComputedService) throws -> Service) -> MapServiceServiceDiscovery<Self, ComputedService> {
         MapServiceServiceDiscovery(originalSD: self, transformer: transformer)
     }
 
