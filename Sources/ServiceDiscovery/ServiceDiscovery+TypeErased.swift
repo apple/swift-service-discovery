@@ -165,7 +165,7 @@ public class AnyServiceDiscovery: ServiceDiscovery {
             return .success(instances)
         }
     }
-    
+
     private func transform<Instance>(_ anyInstance: AnyHashable) throws -> Instance where Instance: Hashable {
         guard let instance = anyInstance.base as? Instance else {
             throw TypeErasedServiceDiscoveryError.typeMismatch(description: "Expected instance type to be \(Instance.self), got \(type(of: anyInstance.base))")
@@ -186,20 +186,20 @@ public class AnyServiceDiscovery: ServiceDiscovery {
 }
 
 #if compiler(>=5.5) && canImport(_Concurrency)
-extension AnyServiceDiscovery {
+public extension AnyServiceDiscovery {
     /// See `lookup`.
     ///
     /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    public func lookupAndUnwrap<Service, Instance>(_ service: Service, deadline: DispatchTime? = nil) async throws -> [Instance] where Service: Hashable, Instance: Hashable {
+    func lookupAndUnwrap<Service, Instance>(_ service: Service, deadline: DispatchTime? = nil) async throws -> [Instance] where Service: Hashable, Instance: Hashable {
         try await self.lookup(service, deadline: deadline).map(self.transform)
     }
-    
+
     /// See `subscribe`.
     ///
     /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    public func subscribeAndUnwrap<Service, Instance>(to service: Service) -> ServiceSnapshots<Instance> where Service: Hashable, Instance: Hashable {
+    func subscribeAndUnwrap<Service, Instance>(to service: Service) -> ServiceSnapshots<Instance> where Service: Hashable, Instance: Hashable {
         ServiceSnapshots(AsyncThrowingStream { continuation in
             Task {
                 do {
