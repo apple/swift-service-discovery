@@ -159,11 +159,14 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
 public struct ServiceDiscoveryError: Error, Equatable, CustomStringConvertible {
     internal enum ErrorType: Equatable, CustomStringConvertible {
         case unavailable
+        case other(String)
 
         var description: String {
             switch self {
             case .unavailable:
                 return "unavailable"
+            case .other(let detail):
+                return "other: \(detail)"
             }
         }
     }
@@ -176,4 +179,8 @@ public struct ServiceDiscoveryError: Error, Equatable, CustomStringConvertible {
 
     /// `ServiceDiscovery` instance is unavailable.
     public static let unavailable = ServiceDiscoveryError(type: .unavailable)
+
+    public static func other(_ detail: String) -> ServiceDiscoveryError {
+        ServiceDiscoveryError(type: .other(detail))
+    }
 }

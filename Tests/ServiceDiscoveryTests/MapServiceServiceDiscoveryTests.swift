@@ -254,14 +254,10 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
     }
 
     func testThrownErrorsPropagateIntoFailures() throws {
-        enum TestError: Error {
-            case error
-        }
-
         let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (_: Int) -> String in throw TestError.error }
 
-        let result = try self.ensureResult(serviceDiscovery: serviceDiscovery, service: self.computedFooService)
+        let result = try ensureResult(serviceDiscovery: serviceDiscovery, service: self.computedFooService)
         guard case .failure(let err) = result else {
             XCTFail("Expected failure, got \(result)")
             return
@@ -270,10 +266,6 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
     }
 
     func testThrownErrorsPropagateIntoCancelledSubscriptions() throws {
-        enum TestError: Error {
-            case error
-        }
-
         let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (_: Int) -> String in throw TestError.error }
 
@@ -306,45 +298,134 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
     func testPropagateDefaultTimeout() throws {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService(serviceType: Int.self) { service in self.services[service] }
-        XCTAssertTrue(Self.compareTimeInterval(configuration.defaultLookupTimeout, serviceDiscovery.defaultLookupTimeout), "\(configuration.defaultLookupTimeout) does not match \(serviceDiscovery.defaultLookupTimeout)")
+        XCTAssertTrue(compareTimeInterval(configuration.defaultLookupTimeout, serviceDiscovery.defaultLookupTimeout), "\(configuration.defaultLookupTimeout) does not match \(serviceDiscovery.defaultLookupTimeout)")
     }
 
-    private func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Service) throws -> Result<[SD.Instance], Error> {
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: Result<[SD.Instance], Error>?
+    // MARK: - async/await API tests
 
-        serviceDiscovery.lookup(service, deadline: nil) {
-            result = $0
-            semaphore.signal()
+    func test_async_lookup() throws {
+        #if !(compiler(>=5.5) && canImport(_Concurrency))
+        try XCTSkipIf(true)
+        #else
+        var configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
+        configuration.register(service: self.barService, instances: self.barInstances)
+
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (service: Int) in self.services[service] }
+
+        runAsyncAndWaitFor {
+            let _fooInstances = try await serviceDiscovery.lookup(self.computedFooService)
+            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.computedFooService)] to have 1 instance, got \(_fooInstances.count)")
+            XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.computedFooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+
+            let _barInstances = try await serviceDiscovery.lookup(self.computedBarService)
+            XCTAssertEqual(_barInstances.count, 2, "Expected service[\(self.computedBarService)] to have 2 instances, got \(_barInstances.count)")
+            XCTAssertEqual(_barInstances, self.barInstances, "Expected service[\(self.computedBarService)] to have instances \(self.barInstances), got \(_barInstances)")
+        }
+        #endif
+    }
+
+    func test_async_lookup_errorIfServiceUnknown() throws {
+        #if !(compiler(>=5.5) && canImport(_Concurrency))
+        try XCTSkipIf(true)
+        #else
+        let unknownService = "unknown-service"
+        let unknownComputedService = 3
+
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService(serviceType: Int.self) { _ in unknownService }
+
+        runAsyncAndWaitFor {
+            do {
+                _ = try await serviceDiscovery.lookup(unknownComputedService)
+                return XCTFail("Lookup instances for service[\(unknownComputedService)] should return an error")
+            } catch {
+                guard let lookupError = error as? LookupError, lookupError == .unknownService else {
+                    return XCTFail("Expected LookupError.unknownService, got \(error)")
+                }
+            }
+        }
+        #endif
+    }
+
+    func test_async_subscribe() throws {
+        #if !(compiler(>=5.5) && canImport(_Concurrency))
+        try XCTSkipIf(true)
+        #else
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let baseServiceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let serviceDiscovery = baseServiceDiscovery.mapService(serviceType: Int.self) { service in self.services[service] }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let counter = ManagedAtomic<Int>(0)
+
+        Task.detached {
+            // Allow time for subscription to start
+            usleep(100_000)
+            // Update #1
+            baseServiceDiscovery.register(self.barService, instances: [])
+            usleep(50000)
+            // Update #2
+            baseServiceDiscovery.register(self.barService, instances: self.barInstances)
+        }
+
+        let task = Task.detached { () -> Void in
+            do {
+                for try await instances in serviceDiscovery.subscribe(to: self.computedBarService) {
+                    switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
+                    case 1:
+                        XCTAssertEqual(instances, [], "Expected instances of \(self.computedBarService) to be empty, got \(instances)")
+                    case 2:
+                        XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.computedBarService) to be \(self.barInstances), got \(instances)")
+                        // This causes the stream to terminate
+                        baseServiceDiscovery.shutdown()
+                    default:
+                        XCTFail("Expected to receive instances 2 times")
+                    }
+                }
+            } catch {
+                switch counter.load(ordering: .relaxed) {
+                case 2: // shutdown is called after receiving two results
+                    guard let serviceDiscoveryError = error as? ServiceDiscoveryError, serviceDiscoveryError == .unavailable else {
+                        return XCTFail("Expected ServiceDiscoveryError.unavailable, got \(error)")
+                    }
+                    // Test is complete at this point
+                    semaphore.signal()
+                default:
+                    XCTFail("Unexpected error \(error)")
+                }
+            }
         }
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
+        task.cancel()
 
-        guard let _result = result else {
-            throw LookupError.timedOut
-        }
-
-        return _result
+        XCTAssertEqual(counter.load(ordering: .relaxed), 2, "Expected to receive instances 2 times, got \(counter.load(ordering: .relaxed)) times")
+        #endif
     }
 
-    private static func compareTimeInterval(_ lhs: DispatchTimeInterval, _ rhs: DispatchTimeInterval) -> Bool {
-        switch (lhs, rhs) {
-        case (.seconds(let lhs), .seconds(let rhs)):
-            return lhs == rhs
-        case (.milliseconds(let lhs), .milliseconds(let rhs)):
-            return lhs == rhs
-        case (.microseconds(let lhs), .microseconds(let rhs)):
-            return lhs == rhs
-        case (.nanoseconds(let lhs), .nanoseconds(let rhs)):
-            return lhs == rhs
-        case (.never, .never):
-            return true
-        case (.seconds, _), (.milliseconds, _), (.microseconds, _), (.nanoseconds, _), (.never, _):
-            return false
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-        @unknown default:
-            return false
-        #endif
+    func testThrownErrorsPropagateIntoAsyncSubscriptions() throws {
+        #if !(compiler(>=5.5) && canImport(_Concurrency))
+        try XCTSkipIf(true)
+        #else
+        let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (_: Int) -> String in throw TestError.error }
+
+        let semaphore = DispatchSemaphore(value: 0)
+
+        let task = Task.detached { () -> Void in
+            do {
+                for try await instances in serviceDiscovery.subscribe(to: self.computedFooService) {
+                    XCTFail("Expected error, got \(instances)")
+                }
+            } catch {
+                guard let err = error as? TestError, err == .error else {
+                    return XCTFail("Expected TestError.error, got \(error)")
+                }
+            }
         }
+
+        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
+        task.cancel()
+        #endif
     }
 }

@@ -139,9 +139,9 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Two results are expected:
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
-        anyServiceDiscovery.subscribe(
+        anyServiceDiscovery.subscribeAndUnwrap(
             to: self.barService,
-            onNext: { result in
+            onNext: { (result: Result<[Instance], Error>) -> Void in
                 resultCounter.wrappingIncrement(ordering: .relaxed)
 
                 guard resultCounter.load(ordering: .relaxed) <= 2 else {
@@ -178,5 +178,151 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
         XCTAssertNoThrow(try anyServiceDiscovery.unwrapAs(InMemoryServiceDiscovery<Service, Instance>.self))
+    }
+
+    // MARK: - async/await API tests
+
+    func test_ServiceDiscoveryBox_async_lookup() throws {
+        #if !(compiler(>=5.5) && canImport(_Concurrency))
+        try XCTSkipIf(true)
+        #else
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
+
+        runAsyncAndWaitFor {
+            let _fooInstances = try await boxedServiceDiscovery.lookup(self.fooService)
+            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+            XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+        }
+        #endif
+    }
+
+    func test_ServiceDiscoveryBox_async_subscribe() throws {
+        #if !(compiler(>=5.5) && canImport(_Concurrency))
+        try XCTSkipIf(true)
+        #else
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let counter = ManagedAtomic<Int>(0)
+
+        Task.detached {
+            // Allow time for subscription to start
+            usleep(100_000)
+            // Update #1
+            serviceDiscovery.register(self.barService, instances: [])
+            usleep(50000)
+            // Update #2
+            serviceDiscovery.register(self.barService, instances: self.barInstances)
+        }
+
+        let task = Task.detached { () -> Void in
+            do {
+                for try await instances in boxedServiceDiscovery.subscribe(to: self.barService) {
+                    switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
+                    case 1:
+                        XCTAssertEqual(instances, [], "Expected instances of \(self.barService) to be empty, got \(instances)")
+                    case 2:
+                        XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                        // This causes the stream to terminate
+                        serviceDiscovery.shutdown()
+                    default:
+                        XCTFail("Expected to receive instances 2 times")
+                    }
+                }
+            } catch {
+                switch counter.load(ordering: .relaxed) {
+                case 2: // shutdown is called after receiving two results
+                    guard let serviceDiscoveryError = error as? ServiceDiscoveryError, serviceDiscoveryError == .unavailable else {
+                        return XCTFail("Expected ServiceDiscoveryError.unavailable, got \(error)")
+                    }
+                    // Test is complete at this point
+                    semaphore.signal()
+                default:
+                    XCTFail("Unexpected error \(error)")
+                }
+            }
+        }
+
+        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
+        task.cancel()
+
+        XCTAssertEqual(counter.load(ordering: .relaxed), 2, "Expected to receive instances 2 times, got \(counter.load(ordering: .relaxed)) times")
+        #endif
+    }
+
+    func test_AnyServiceDiscovery_async_lookup() throws {
+        #if !(compiler(>=5.5) && canImport(_Concurrency))
+        try XCTSkipIf(true)
+        #else
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
+
+        runAsyncAndWaitFor {
+            let _fooInstances: [Instance] = try await anyServiceDiscovery.lookupAndUnwrap(self.fooService)
+            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+            XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+        }
+        #endif
+    }
+
+    func test_AnyServiceDiscovery_async_subscribe() throws {
+        #if !(compiler(>=5.5) && canImport(_Concurrency))
+        try XCTSkipIf(true)
+        #else
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let counter = ManagedAtomic<Int>(0)
+
+        Task.detached {
+            // Allow time for subscription to start
+            usleep(100_000)
+            // Update #1
+            serviceDiscovery.register(self.barService, instances: [])
+            usleep(50000)
+            // Update #2
+            serviceDiscovery.register(self.barService, instances: self.barInstances)
+        }
+
+        let task = Task.detached { () -> Void in
+            do {
+                for try await instances: [Instance] in anyServiceDiscovery.subscribeAndUnwrap(to: self.barService) {
+                    switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
+                    case 1:
+                        XCTAssertEqual(instances, [], "Expected instances of \(self.barService) to be empty, got \(instances)")
+                    case 2:
+                        XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                        // This causes the stream to terminate
+                        serviceDiscovery.shutdown()
+                    default:
+                        XCTFail("Expected to receive instances 2 times")
+                    }
+                }
+            } catch {
+                switch counter.load(ordering: .relaxed) {
+                case 2: // shutdown is called after receiving two results
+                    guard let serviceDiscoveryError = error as? ServiceDiscoveryError, serviceDiscoveryError == .unavailable else {
+                        return XCTFail("Expected ServiceDiscoveryError.unavailable, got \(error)")
+                    }
+                    // Test is complete at this point
+                    semaphore.signal()
+                default:
+                    XCTFail("Unexpected error \(error)")
+                }
+            }
+        }
+
+        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
+        task.cancel()
+
+        XCTAssertEqual(counter.load(ordering: .relaxed), 2, "Expected to receive instances 2 times, got \(counter.load(ordering: .relaxed)) times")
+        #endif
     }
 }
