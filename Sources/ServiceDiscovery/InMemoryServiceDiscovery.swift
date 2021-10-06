@@ -113,7 +113,7 @@ public final class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashabl
                 continuation.onTermination = { @Sendable (_) -> Void in
                     // Don't worry about updating subscriptions on global shutdown
                     guard !self.isShutdown else { return }
-                    
+
                     self.serviceSubscriptionsLock.withLock {
                         var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
                         subscriptions.removeAll { $0.id == subscription.id }
