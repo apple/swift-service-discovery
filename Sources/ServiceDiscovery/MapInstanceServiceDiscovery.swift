@@ -32,28 +32,22 @@ extension MapInstanceServiceDiscovery: ServiceDiscovery {
         self.originalSD.defaultLookupTimeout
     }
 
-    public func lookup(_ service: BaseDiscovery.Service, deadline: DispatchTime?, callback: @escaping (Result<[DerivedInstance], Error>) -> Void) {
-        self.originalSD.lookup(service, deadline: deadline) { result in callback(self.transform(result)) }
+    public func lookup(_ service: BaseDiscovery.Service, deadline: DispatchTime? = nil) async throws -> [DerivedInstance] {
+        try await self.originalSD.lookup(service, deadline: deadline).map(self.transformer)
     }
 
-    public func subscribe(to service: BaseDiscovery.Service, onNext nextResultHandler: @escaping (Result<[DerivedInstance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken {
-        self.originalSD.subscribe(
-            to: service,
-            onNext: { result in nextResultHandler(self.transform(result)) },
-            onComplete: completionHandler
-        )
-    }
-
-    private func transform(_ result: Result<[BaseDiscovery.Instance], Error>) -> Result<[DerivedInstance], Error> {
-        switch result {
-        case .success(let instances):
-            do {
-                return try .success(instances.map(self.transformer))
-            } catch {
-                return .failure(error)
+    public func subscribe(to service: BaseDiscovery.Service) throws -> AsyncThrowingStream<[DerivedInstance], Error> {
+        AsyncThrowingStream { continuation in
+            Task.detached {
+                do {
+                    for try await snapshot in try self.originalSD.subscribe(to: service) {
+                        continuation.yield(try snapshot.map(self.transformer))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
             }
-        case .failure(let error):
-            return .failure(error)
         }
     }
 }

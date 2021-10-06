@@ -32,36 +32,13 @@ extension MapServiceServiceDiscovery: ServiceDiscovery {
         self.originalSD.defaultLookupTimeout
     }
 
-    public func lookup(_ service: ComputedService, deadline: DispatchTime?, callback: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void) {
-        let derivedService: BaseDiscovery.Service
-
-        do {
-            derivedService = try self.transformer(service)
-        } catch {
-            callback(.failure(error))
-            return
-        }
-
-        self.originalSD.lookup(derivedService, deadline: deadline, callback: callback)
+    public func lookup(_ service: ComputedService, deadline: DispatchTime? = nil) async throws -> [BaseDiscovery.Instance] {
+        let derivedService = try self.transformer(service)
+        return try await self.originalSD.lookup(derivedService, deadline: deadline)
     }
 
-    public func subscribe(to service: ComputedService, onNext nextResultHandler: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken {
-        let derivedService: BaseDiscovery.Service
-
-        do {
-            derivedService = try self.transformer(service)
-        } catch {
-            // Ok, we couldn't transform the service. We want to throw an error into `nextResultHandler` and then immediately cancel.
-            let cancellationToken = CancellationToken(isCancelled: true, completionHandler: completionHandler)
-            nextResultHandler(.failure(error))
-            completionHandler(.failedToMapService)
-            return cancellationToken
-        }
-
-        return self.originalSD.subscribe(
-            to: derivedService,
-            onNext: nextResultHandler,
-            onComplete: completionHandler
-        )
+    public func subscribe(to service: ComputedService) throws -> BaseDiscovery.InstancesSnapshotSequence {
+        let derivedService = try self.transformer(service)
+        return try self.originalSD.subscribe(to: derivedService)
     }
 }

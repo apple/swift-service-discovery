@@ -1,8 +1,9 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.5
 import PackageDescription
 
 let package = Package(
     name: "swift-service-discovery",
+    platforms: [.macOS("12.0")],
     products: [
         .library(name: "ServiceDiscovery", targets: ["ServiceDiscovery"]),
     ],

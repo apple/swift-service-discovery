@@ -8,6 +8,9 @@ services:
       args:
         ubuntu_version: "focal"
         swift_version: "5.5"
+        
+  build:
+    image: swift-service-discovery:20.04-5.5
 
   test:
     image: swift-service-discovery:20.04-5.5

@@ -17,7 +17,7 @@ import Dispatch
 import Foundation // for NSLock
 
 /// Provides lookup for service instances that are stored in-memory.
-public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
+public final class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
     private let configuration: Configuration
 
     private let serviceInstancesLock = NSLock()
@@ -44,63 +44,84 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self.queue = queue
     }
 
-    public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
+    public func lookup(_ service: Service, deadline: DispatchTime? = nil) async throws -> [Instance] {
         guard !self.isShutdown else {
-            callback(.failure(ServiceDiscoveryError.unavailable))
-            return
+            throw ServiceDiscoveryError.unavailable
         }
 
-        let isDone = ManagedAtomic<Bool>(false)
-
-        let lookupWorkItem = DispatchWorkItem {
-            var result: Result<[Instance], Error>! // !-safe because if-else block always set `result`
-
-            self.serviceInstancesLock.withLock {
-                if let instances = self.serviceInstances[service] {
-                    result = .success(instances)
-                } else {
-                    result = .failure(LookupError.unknownService)
-                }
+        let task: Task<[Instance], Error> = Task.detached {
+            let instances = self.serviceInstancesLock.withLock {
+                self.serviceInstances[service]
             }
 
-            if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
-                callback(result)
+            // This task is cancelled at deadline
+            guard !Task.isCancelled else {
+                throw LookupError.timedOut
             }
+            guard let instances = instances else {
+                throw LookupError.unknownService
+            }
+            return instances
         }
-
-        self.queue.async(execute: lookupWorkItem)
 
         // Timeout handler
         self.queue.asyncAfter(deadline: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) {
-            lookupWorkItem.cancel()
-
-            if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
-                callback(.failure(LookupError.timedOut))
-            }
+            task.cancel()
         }
+
+        return try await task.value
     }
 
-    @discardableResult
-    public func subscribe(to service: Service, onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }) -> CancellationToken {
+    public func subscribe(to service: Service) throws -> AsyncThrowingStream<[Instance], Error> {
         guard !self.isShutdown else {
-            completionHandler(.serviceDiscoveryUnavailable)
-            return CancellationToken(isCancelled: true)
+            throw ServiceDiscoveryError.unavailable
         }
 
-        // Call `lookup` once and send result to subscriber
-        self.lookup(service, callback: nextResultHandler)
+        return AsyncThrowingStream { continuation in
+            Task.detached { () -> Void in
+                // Call `lookup` once and send it as the first stream element
+                do {
+                    let instances = try await self.lookup(service)
+                    continuation.yield(instances)
+                } catch is LookupError {
+                    // LookupError is recoverable (e.g., service is added *after* subscription begins), so don't bail yet
+                } catch {
+                    return continuation.finish(throwing: error)
+                }
 
-        let cancellationToken = CancellationToken(completionHandler: completionHandler)
-        let subscription = Subscription(nextResultHandler: nextResultHandler, completionHandler: completionHandler, cancellationToken: cancellationToken)
+                // Create subscription
+                let subscription = Subscription(
+                    id: UUID(),
+                    nextResultHandler: { instances in continuation.yield(instances) },
+                    completionHandler: { error in
+                        if let error = error {
+                            continuation.finish(throwing: error)
+                        } else {
+                            continuation.finish()
+                        }
+                    }
+                )
 
-        // Save the subscription
-        self.serviceSubscriptionsLock.withLock {
-            var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
-            subscriptions.append(subscription)
-            self.serviceSubscriptions[service] = subscriptions
+                // Save the subscription
+                self.serviceSubscriptionsLock.withLock {
+                    var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
+                    subscriptions.append(subscription)
+                    self.serviceSubscriptions[service] = subscriptions
+                }
+
+                // Remove the subscription when it terminates
+                continuation.onTermination = { @Sendable (_) -> Void in
+                    // Don't worry about updating subscriptions on global shutdown
+                    guard !self.isShutdown else { return }
+                    
+                    self.serviceSubscriptionsLock.withLock {
+                        var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
+                        subscriptions.removeAll { $0.id == subscription.id }
+                        self.serviceSubscriptions[service] = subscriptions
+                    }
+                }
+            }
         }
-
-        return cancellationToken
     }
 
     /// Registers a service and its `instances`.
@@ -116,9 +137,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self.serviceSubscriptionsLock.withLock {
             if !self.isShutdown, instances != previousInstances, let subscriptions = self.serviceSubscriptions[service] {
                 // Notify subscribers whenever instances change
-                subscriptions
-                    .filter { !$0.cancellationToken.isCancelled }
-                    .forEach { $0.nextResultHandler(.success(instances)) }
+                subscriptions.forEach { $0.nextResultHandler(instances) }
             }
         }
     }
@@ -128,17 +147,15 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
         self.serviceSubscriptionsLock.withLock {
             self.serviceSubscriptions.values.forEach { subscriptions in
-                subscriptions
-                    .filter { !$0.cancellationToken.isCancelled }
-                    .forEach { $0.completionHandler(.serviceDiscoveryUnavailable) }
+                subscriptions.forEach { $0.completionHandler(ServiceDiscoveryError.unavailable) }
             }
         }
     }
 
     private struct Subscription {
-        let nextResultHandler: (Result<[Instance], Error>) -> Void
-        let completionHandler: (CompletionReason) -> Void
-        let cancellationToken: CancellationToken
+        let id: UUID
+        let nextResultHandler: ([Instance]) -> Void
+        let completionHandler: (Error?) -> Void
     }
 }
 
@@ -173,11 +190,11 @@ public extension InMemoryServiceDiscovery {
 // MARK: - NSLock extensions
 
 private extension NSLock {
-    func withLock(_ body: () -> Void) {
+    func withLock<Value>(_ body: () -> Value) -> Value {
         self.lock()
         defer {
             self.unlock()
         }
-        body()
+        return body()
     }
 }

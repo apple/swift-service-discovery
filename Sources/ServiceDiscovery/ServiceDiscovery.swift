@@ -18,15 +18,13 @@ import Dispatch
 // MARK: - Service discovery protocol
 
 /// Provides service instances lookup.
-///
-/// ### Threading
-///
-/// `ServiceDiscovery` implementations **MUST be thread-safe**.
 public protocol ServiceDiscovery: AnyObject {
     /// Service identity type
     associatedtype Service: Hashable
     /// Service instance type
     associatedtype Instance: Hashable
+    /// Service instances snapshots type
+    associatedtype InstancesSnapshotSequence: AsyncSequence where InstancesSnapshotSequence.Element == [Instance]
 
     /// Default timeout for lookup.
     var defaultLookupTimeout: DispatchTimeInterval { get }
@@ -35,93 +33,23 @@ public protocol ServiceDiscovery: AnyObject {
     ///
     /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
     ///
-    /// ### Threading
-    ///
-    /// `callback` may be invoked on arbitrary threads, as determined by implementation.
-    ///
     /// - Parameters:
     ///   - service: The service to lookup
     ///   - deadline: Lookup is considered to have timed out if it does not complete by this time
-    ///   - callback: The closure to receive lookup result
-    func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
+    ///
+    /// - Returns: The service's instances. An error is thrown in case `service` is unknown.
+    func lookup(_ service: Service, deadline: DispatchTime?) async throws -> [Instance]
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
     /// The service's current list of instances will be sent to `nextResultHandler` when this method is first called. Subsequently,
     /// `nextResultHandler` will only be invoked when the `service`'s instances change.
     ///
-    /// ### Threading
-    ///
-    /// `nextResultHandler` and `completionHandler` may be invoked on arbitrary threads, as determined by implementation.
-    ///
     /// - Parameters:
     ///   - service: The service to subscribe to
-    ///   - nextResultHandler: The closure to receive update result
-    ///   - completionHandler: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
-    ///                 including cancellation requested through `CancellationToken`.
     ///
-    /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
-    func subscribe(to service: Service, onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken
-}
-
-// MARK: - Subscription
-
-/// Enables cancellation of service discovery subscription.
-public class CancellationToken {
-    private let _isCancelled: ManagedAtomic<Bool>
-    private let _completionHandler: (CompletionReason) -> Void
-
-    /// Returns `true` if the subscription has been cancelled.
-    public var isCancelled: Bool {
-        self._isCancelled.load(ordering: .acquiring)
-    }
-
-    /// Creates a new token.
-    public init(isCancelled: Bool = false, completionHandler: @escaping (CompletionReason) -> Void = { _ in }) {
-        self._isCancelled = ManagedAtomic<Bool>(isCancelled)
-        self._completionHandler = completionHandler
-    }
-
-    /// Cancels the subscription.
-    public func cancel() {
-        guard self._isCancelled.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged else { return }
-        self._completionHandler(.cancellationRequested)
-    }
-}
-
-/// Reason that leads to service discovery subscription completion.
-public struct CompletionReason: Equatable, CustomStringConvertible {
-    internal enum ReasonType: Int, Equatable, CustomStringConvertible {
-        case cancellationRequested
-        case serviceDiscoveryUnavailable
-        case failedToMapService
-
-        var description: String {
-            switch self {
-            case .cancellationRequested:
-                return "cancellationRequested"
-            case .serviceDiscoveryUnavailable:
-                return "serviceDiscoveryUnavailable"
-            case .failedToMapService:
-                return "failedToMapService"
-            }
-        }
-    }
-
-    internal let type: ReasonType
-
-    public var description: String {
-        "CompletionReason.\(String(describing: self.type))"
-    }
-
-    /// Cancellation requested through `CancellationToken`.
-    public static let cancellationRequested = CompletionReason(type: .cancellationRequested)
-
-    /// Service discovery is unavailable.
-    public static let serviceDiscoveryUnavailable = CompletionReason(type: .serviceDiscoveryUnavailable)
-
-    /// A service mapping function threw an error
-    public static let failedToMapService = CompletionReason(type: .failedToMapService)
+    /// -  Returns: A sequence of the service's instances as they are updated.
+    func subscribe(to service: Service) throws -> InstancesSnapshotSequence
 }
 
 // MARK: - Service discovery errors

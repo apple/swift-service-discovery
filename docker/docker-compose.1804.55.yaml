@@ -1,0 +1,21 @@
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: swift-service-discovery:18.04-5.5
+    build:
+      args:
+        ubuntu_version: "bionic"
+        swift_version: "5.5"
+        
+  build:
+    image: swift-service-discovery:18.04-5.5
+
+  test:
+    image: swift-service-discovery:18.04-5.5
+    environment: []
+      #- SANITIZER_ARG=--sanitize=thread
+
+  shell:
+    image: swift-service-discovery:18.04-5.5

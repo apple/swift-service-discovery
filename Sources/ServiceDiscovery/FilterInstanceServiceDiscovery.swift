@@ -32,28 +32,22 @@ extension FilterInstanceServiceDiscovery: ServiceDiscovery {
         self.originalSD.defaultLookupTimeout
     }
 
-    public func lookup(_ service: BaseDiscovery.Service, deadline: DispatchTime?, callback: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void) {
-        self.originalSD.lookup(service, deadline: deadline) { result in callback(self.transform(result)) }
+    public func lookup(_ service: BaseDiscovery.Service, deadline: DispatchTime? = nil) async throws -> [BaseDiscovery.Instance] {
+        try await self.originalSD.lookup(service, deadline: deadline).filter(self.predicate)
     }
 
-    public func subscribe(to service: BaseDiscovery.Service, onNext nextResultHandler: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken {
-        self.originalSD.subscribe(
-            to: service,
-            onNext: { result in nextResultHandler(self.transform(result)) },
-            onComplete: completionHandler
-        )
-    }
-
-    private func transform(_ result: Result<[BaseDiscovery.Instance], Error>) -> Result<[BaseDiscovery.Instance], Error> {
-        switch result {
-        case .success(let instances):
-            do {
-                return try .success(instances.filter(self.predicate))
-            } catch {
-                return .failure(error)
+    public func subscribe(to service: BaseDiscovery.Service) throws -> AsyncThrowingStream<[BaseDiscovery.Instance], Error> {
+        AsyncThrowingStream { continuation in
+            Task.detached {
+                do {
+                    for try await snapshot in try self.originalSD.subscribe(to: service) {
+                        continuation.yield(try snapshot.filter(self.predicate))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
             }
-        case .failure(let error):
-            return .failure(error)
         }
     }
 }
