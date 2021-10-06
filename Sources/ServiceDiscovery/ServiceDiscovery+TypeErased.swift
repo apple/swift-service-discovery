@@ -30,7 +30,8 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
     }
 
     public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl)
-        where ServiceDiscoveryImpl.Service == Service, ServiceDiscoveryImpl.Instance == Instance {
+        where ServiceDiscoveryImpl.Service == Service, ServiceDiscoveryImpl.Instance == Instance
+    {
         self._underlying = serviceDiscovery
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
 
