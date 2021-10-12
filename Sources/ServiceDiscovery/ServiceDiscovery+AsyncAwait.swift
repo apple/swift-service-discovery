@@ -69,22 +69,41 @@ public extension ServiceDiscovery {
 }
 
 @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-public struct ServiceSnapshots<Instance>: AsyncSequence, AsyncIteratorProtocol {
+public struct ServiceSnapshots<Instance>: AsyncSequence {
     public typealias Element = [Instance]
+    typealias AsyncSnapshotsStream = AsyncThrowingStream<Element, Error>
 
-    private let _next: () async throws -> [Instance]?
+    private let stream: AsyncSnapshotsStream
 
     public init<SnapshotSequence: AsyncSequence>(_ snapshots: SnapshotSequence) where SnapshotSequence.Element == Element {
-        var iterator = snapshots.makeAsyncIterator()
-        self._next = { try await iterator.next() }
+        self.stream = AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    for try await snapshot in snapshots {
+                        continuation.yield(snapshot)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
 
-    public func next() async throws -> [Instance]? {
-        try await self._next()
+    public func makeAsyncIterator() -> AsyncIterator {
+        AsyncIterator(self.stream.makeAsyncIterator())
     }
 
-    public func makeAsyncIterator() -> Self {
-        self
+    public struct AsyncIterator: AsyncIteratorProtocol {
+        private var underlying: AsyncSnapshotsStream.Iterator
+
+        init(_ iterator: AsyncSnapshotsStream.Iterator) {
+            self.underlying = iterator
+        }
+
+        public mutating func next() async throws -> [Instance]? {
+            try await self.underlying.next()
+        }
     }
 }
 
