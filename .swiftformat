@@ -1,4 +1,4 @@
---swiftversion 5.1
+--swiftversion 5.2
 
 # file options
 
@@ -16,3 +16,5 @@
 # rules
 
 --disable blankLinesAroundMark
+--disable wrapMultilineStatementBraces
+
