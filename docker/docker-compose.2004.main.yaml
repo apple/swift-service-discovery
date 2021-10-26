@@ -12,6 +12,7 @@ services:
     image: swift-service-discovery:20.04-main
     environment: []
       #- SANITIZER_ARG=--sanitize=thread
+    command: /bin/bash -xcl "swift test $${SANITIZER_ARG-}" # Disable -warnings-as-errors due to Sendable warnings
 
   shell:
     image: swift-service-discovery:20.04-main
