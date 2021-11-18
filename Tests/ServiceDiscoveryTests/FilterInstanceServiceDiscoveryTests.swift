@@ -276,6 +276,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
 
     // MARK: - async/await API tests
 
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func test_async_lookup() throws {
         #if !(compiler(>=5.5) && canImport(_Concurrency))
         try XCTSkipIf(true)
@@ -297,6 +298,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
         #endif
     }
 
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func test_async_lookup_errorIfServiceUnknown() throws {
         #if !(compiler(>=5.5) && canImport(_Concurrency))
         try XCTSkipIf(true)
@@ -319,6 +321,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
         #endif
     }
 
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func test_async_subscribe() throws {
         #if !(compiler(>=5.5) && canImport(_Concurrency))
         try XCTSkipIf(true)
