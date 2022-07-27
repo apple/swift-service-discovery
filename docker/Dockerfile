@@ -1,4 +1,4 @@
-ARG swift_version=5.1
+ARG swift_version=5.3
 ARG ubuntu_version=bionic
 ARG base_image=swift:$swift_version-$ubuntu_version
 FROM $base_image
