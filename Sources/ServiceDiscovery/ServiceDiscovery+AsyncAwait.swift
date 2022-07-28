@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2021 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2021-2022 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -17,6 +17,14 @@ import Dispatch
 #if compiler(>=5.5) && canImport(_Concurrency)
 
 public extension ServiceDiscovery {
+    /// Performs async lookup for the given service's instances.
+    ///
+    /// ``defaultLookupTimeout`` will be used to compute `deadline` in case one is not specified.
+    ///
+    /// - Parameters:
+    ///   - service: The service to lookup
+    ///
+    /// -  Returns: A listing of service instances.
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func lookup(_ service: Service, deadline: DispatchTime? = nil) async throws -> [Instance] {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Instance], Error>) in
@@ -31,6 +39,12 @@ public extension ServiceDiscovery {
         }
     }
 
+    /// Returns a ``ServiceSnapshots``, which is an `AsyncSequence` and each of its items is a snapshot listing of service instances.
+    ///
+    /// - Parameters:
+    ///   - service: The service to subscribe to
+    ///
+    /// -  Returns: A ``ServiceSnapshots`` async sequence.
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func subscribe(to service: Service) -> ServiceSnapshots<Instance> {
         ServiceSnapshots(AsyncThrowingStream<[Instance], Error> { continuation in
@@ -68,6 +82,7 @@ public extension ServiceDiscovery {
     }
 }
 
+/// An async sequence of snapshot listings of service instances.
 @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
 public struct ServiceSnapshots<Instance>: AsyncSequence {
     public typealias Element = [Instance]

@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2021 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2022 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -33,7 +33,7 @@ public protocol ServiceDiscovery: AnyObject {
 
     /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
     ///
-    /// `defaultLookupTimeout` will be used to compute `deadline` in case one is not specified.
+    /// ``defaultLookupTimeout`` will be used to compute `deadline` in case one is not specified.
     ///
     /// ### Threading
     ///
@@ -60,7 +60,7 @@ public protocol ServiceDiscovery: AnyObject {
     ///   - completionHandler: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
     ///                 including cancellation requested through `CancellationToken`.
     ///
-    /// -  Returns: A `CancellationToken` instance that can be used to cancel the subscription in the future.
+    /// -  Returns: A ``CancellationToken`` instance that can be used to cancel the subscription in the future.
     func subscribe(to service: Service, onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken
 }
 
