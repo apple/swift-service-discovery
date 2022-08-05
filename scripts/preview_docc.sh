@@ -2,7 +2,7 @@
 
 ##===----------------------------------------------------------------------===##
 ##
-## This source file is part of the SwiftStatsdClient open source project
+## This source file is part of the Swift Service Discovery open source project
 ##
 ## Copyright (c) 2022 the SwiftStatsdClient project authors
 ## Licensed under Apache License v2.0
@@ -28,4 +28,4 @@
 ##
 ##===----------------------------------------------------------------------===##
 
-xcrun swift package --disable-sandbox preview-documentation --target $1
+swift package --disable-sandbox preview-documentation --target $1
