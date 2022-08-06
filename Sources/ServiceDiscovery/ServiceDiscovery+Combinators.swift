@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020-2022 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -15,7 +15,7 @@
 // MARK: - Map and filter
 
 public extension ServiceDiscovery {
-    /// Creates a new `ServiceDiscovery` implementation based on this one, transforming the instances according to
+    /// Creates a new ``ServiceDiscovery/ServiceDiscovery`` implementation based on this one, transforming the instances according to
     /// the derived function.
     ///
     /// It is not necessarily safe to block in this closure. This closure should not block for safety.
@@ -23,7 +23,7 @@ public extension ServiceDiscovery {
         MapInstanceServiceDiscovery(originalSD: self, transformer: transformer)
     }
 
-    /// Creates a new `ServiceDiscovery` implementation based on this one, transforming the services according to
+    /// Creates a new ``ServiceDiscovery/ServiceDiscovery`` implementation based on this one, transforming the services according to
     /// the derived function.
     ///
     /// It is not necessarily safe to block in this closure. This closure should not block for safety.
@@ -32,7 +32,7 @@ public extension ServiceDiscovery {
         MapServiceServiceDiscovery(originalSD: self, transformer: transformer)
     }
 
-    /// Creates a new `ServiceDiscovery` implementation based on this one, filtering instances with the given predicate.
+    /// Creates a new ``ServiceDiscovery/ServiceDiscovery`` implementation based on this one, filtering instances with the given predicate.
     ///
     /// It is not necessarily safe to block in this closure. This closure should not block for safety.
     func filterInstance(_ predicate: @escaping (Instance) throws -> Bool) -> FilterInstanceServiceDiscovery<Self> {

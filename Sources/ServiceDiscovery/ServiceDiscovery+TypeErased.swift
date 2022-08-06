@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020-2022 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -16,6 +16,7 @@ import Dispatch
 
 // MARK: - Generic wrapper for `ServiceDiscovery` instance
 
+/// Generic wrapper for ``ServiceDiscovery/ServiceDiscovery`` instance.
 public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
     private let _underlying: Any
 
@@ -55,9 +56,9 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
         self._subscribe(service, nextResultHandler, completionHandler)
     }
 
-    /// Unwraps the underlying `ServiceDiscovery` instance as `ServiceDiscoveryImpl` type.
+    /// Unwraps the underlying ``ServiceDiscovery/ServiceDiscovery`` instance as `ServiceDiscoveryImpl` type.
     ///
-    /// - Throws: ` TypeErasedServiceDiscoveryError.typeMismatch` when the underlying
+    /// - Throws: `TypeErasedServiceDiscoveryError.typeMismatch` when the underlying
     ///           `ServiceDiscovery` instance is not of type `ServiceDiscoveryImpl`.
     @discardableResult
     public func unwrapAs<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscoveryType: ServiceDiscoveryImpl.Type) throws -> ServiceDiscoveryImpl {
@@ -70,6 +71,7 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
 
 // MARK: - Type-erased wrapper for `ServiceDiscovery` instance
 
+/// Type-erased wrapper for ``ServiceDiscovery/ServiceDiscovery`` instance.
 public class AnyServiceDiscovery: ServiceDiscovery {
     private let _underlying: Any
 
@@ -107,16 +109,16 @@ public class AnyServiceDiscovery: ServiceDiscovery {
         }
     }
 
-    /// See `ServiceDiscovery.lookup`.
+    /// See ``ServiceDiscovery/lookup(_:deadline:callback:)``.
     ///
     /// - Warning: If `service` type does not match the underlying `ServiceDiscovery`'s, it would result in a failure.
     public func lookup(_ service: AnyHashable, deadline: DispatchTime? = nil, callback: @escaping (Result<[AnyHashable], Error>) -> Void) {
         self._lookup(service, deadline, callback)
     }
 
-    /// See `lookup`.
+    /// See ``ServiceDiscovery/lookup(_:deadline:callback:)``.
     ///
-    /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
+    /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
     public func lookupAndUnwrap<Service, Instance>(
         _ service: Service,
         deadline: DispatchTime? = nil,
@@ -127,9 +129,9 @@ public class AnyServiceDiscovery: ServiceDiscovery {
         }
     }
 
-    /// See `ServiceDiscovery.subscribe`.
+    /// See ``ServiceDiscovery/subscribe(to:onNext:onComplete:)``.
     ///
-    /// - Warning: If `service` type does not match the underlying `ServiceDiscovery`'s, it would result in a failure.
+    /// - Warning: If `service` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s, it would result in a failure.
     @discardableResult
     public func subscribe(
         to service: AnyHashable,
@@ -139,9 +141,9 @@ public class AnyServiceDiscovery: ServiceDiscovery {
         self._subscribe(service, nextResultHandler, completionHandler)
     }
 
-    /// See `subscribe`.
+    /// See ``ServiceDiscovery/subscribe(to:onNext:onComplete:)``.
     ///
-    /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
+    /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
     @discardableResult
     public func subscribeAndUnwrap<Service, Instance>(
         to service: Service,
@@ -173,9 +175,9 @@ public class AnyServiceDiscovery: ServiceDiscovery {
         return instance
     }
 
-    /// Unwraps the underlying `ServiceDiscovery` instance as `ServiceDiscoveryImpl` type.
+    /// Unwraps the underlying ``ServiceDiscovery/ServiceDiscovery`` instance as `ServiceDiscoveryImpl` type.
     ///
-    /// - Throws: ` TypeErasedServiceDiscoveryError.typeMismatch` when the underlying
+    /// - Throws: `TypeErasedServiceDiscoveryError.typeMismatch` when the underlying
     ///           `ServiceDiscovery` instance is not of type `ServiceDiscoveryImpl`.
     public func unwrapAs<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscoveryType: ServiceDiscoveryImpl.Type) throws -> ServiceDiscoveryImpl {
         guard let unwrapped = self._underlying as? ServiceDiscoveryImpl else {
@@ -187,17 +189,17 @@ public class AnyServiceDiscovery: ServiceDiscovery {
 
 #if compiler(>=5.5) && canImport(_Concurrency)
 public extension AnyServiceDiscovery {
-    /// See `lookup`.
+    /// See ``ServiceDiscovery/lookup(_:deadline:)``.
     ///
-    /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
+    /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func lookupAndUnwrap<Service, Instance>(_ service: Service, deadline: DispatchTime? = nil) async throws -> [Instance] where Service: Hashable, Instance: Hashable {
         try await self.lookup(service, deadline: deadline).map(self.transform)
     }
 
-    /// See `subscribe`.
+    /// See ``ServiceDiscovery/subscribe(to:)``.
     ///
-    /// - Warning: If `Service` or `Instance` type does not match the underlying `ServiceDiscovery`'s associated types, it would result in a failure.
+    /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func subscribeAndUnwrap<Service, Instance>(to service: Service) -> ServiceSnapshots<Instance> where Service: Hashable, Instance: Hashable {
         ServiceSnapshots(AsyncThrowingStream { continuation in
