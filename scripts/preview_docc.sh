@@ -1,10 +1,9 @@
 #!/bin/bash
-
 ##===----------------------------------------------------------------------===##
 ##
 ## This source file is part of the SwiftServiceDiscovery open source project
 ##
-## Copyright (c) 2022 the SwiftServiceDiscovery project authors
+## Copyright (c) 2022 Apple Inc. and the SwiftServiceDiscovery project authors
 ## Licensed under Apache License v2.0
 ##
 ## See LICENSE.txt for license information
