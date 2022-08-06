@@ -2,13 +2,13 @@
 
 ##===----------------------------------------------------------------------===##
 ##
-## This source file is part of the Swift Service Discovery open source project
+## This source file is part of the SwiftServiceDiscovery open source project
 ##
-## Copyright (c) 2022 the SwiftStatsdClient project authors
+## Copyright (c) 2022 the SwiftServiceDiscovery project authors
 ## Licensed under Apache License v2.0
 ##
 ## See LICENSE.txt for license information
-## See CONTRIBUTORS.txt for the list of SwiftStatsdClient project authors
+## See CONTRIBUTORS.txt for the list of SwiftServiceDiscovery project authors
 ##
 ## SPDX-License-Identifier: Apache-2.0
 ##
