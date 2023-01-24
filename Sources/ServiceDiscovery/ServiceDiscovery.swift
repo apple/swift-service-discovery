@@ -67,7 +67,7 @@ public protocol ServiceDiscovery: AnyObject {
 // MARK: - Subscription
 
 /// Enables cancellation of service discovery subscription.
-public class CancellationToken: @unchecked Sendable {
+public class CancellationToken {
     private let _isCancelled: ManagedAtomic<Bool>
     private let _completionHandler: (CompletionReason) -> Void
 
@@ -88,6 +88,10 @@ public class CancellationToken: @unchecked Sendable {
         self._completionHandler(.cancellationRequested)
     }
 }
+
+#if compiler(>=5.5) && canImport(_Concurrency)
+extension CancellationToken: @unchecked Sendable {}
+#endif
 
 /// Reason that leads to service discovery subscription completion.
 public struct CompletionReason: Equatable, CustomStringConvertible {
