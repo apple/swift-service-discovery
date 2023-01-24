@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2022 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2023 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -67,7 +67,7 @@ public protocol ServiceDiscovery: AnyObject {
 // MARK: - Subscription
 
 /// Enables cancellation of service discovery subscription.
-public class CancellationToken {
+public class CancellationToken: @unchecked Sendable {
     private let _isCancelled: ManagedAtomic<Bool>
     private let _completionHandler: (CompletionReason) -> Void
 
