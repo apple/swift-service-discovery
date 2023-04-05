@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020-2023 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -21,41 +21,41 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
     typealias Service = String
     typealias Instance = HostPort
 
-    let fooService = "fooService"
-    let fooInstances = [
+    static let fooService = "fooService"
+    static let fooInstances = [
         HostPort(host: "localhost", port: 7001),
     ]
 
-    let barService = "bar-service"
-    let barInstances = [
+    static let barService = "bar-service"
+    static let barInstances = [
         HostPort(host: "localhost", port: 9001),
         HostPort(host: "localhost", port: 9002),
     ]
 
     func test_ServiceDiscoveryBox_lookup() throws {
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
         let semaphore = DispatchSemaphore(value: 0)
 
-        boxedServiceDiscovery.lookup(self.fooService) { fooResult in
+        boxedServiceDiscovery.lookup(Self.fooService) { fooResult in
             guard case .success(let _fooInstances) = fooResult else {
-                return XCTFail("Failed to lookup instances for service[\(self.fooService)]")
+                return XCTFail("Failed to lookup instances for service[\(Self.fooService)]")
             }
-            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
-            XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+            XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
 
             semaphore.signal()
         }
 
         if semaphore.wait(timeout: DispatchTime.now() + .seconds(1)) == .timedOut {
-            return XCTFail("Failed to lookup instances for service[\(self.fooService)]: timed out")
+            return XCTFail("Failed to lookup instances for service[\(Self.fooService)]: timed out")
         }
     }
 
     func test_ServiceDiscoveryBox_subscribe() throws {
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
@@ -66,7 +66,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
         boxedServiceDiscovery.subscribe(
-            to: self.barService,
+            to: Self.barService,
             onNext: { result in
                 resultCounter.wrappingIncrement(ordering: .relaxed)
 
@@ -77,13 +77,13 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
                 switch result {
                 case .failure(let error):
                     guard resultCounter.load(ordering: .relaxed) == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(Self.barService) is not registered, got \(error)")
                     }
                 case .success(let instances):
                     guard resultCounter.load(ordering: .relaxed) == 2 else {
                         return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load(ordering: .relaxed)) got \(instances)")
                     }
-                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                    XCTAssertEqual(instances, Self.barInstances, "Expected instances of \(Self.barService) to be \(Self.barInstances), got \(instances)")
                     semaphore.signal()
                 }
             }
@@ -91,7 +91,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
 
         // Allow time for first result of `subscribe`
         usleep(100_000)
-        serviceDiscovery.register(self.barService, instances: self.barInstances)
+        serviceDiscovery.register(Self.barService, instances: Self.barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
@@ -99,7 +99,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
     }
 
     func test_ServiceDiscoveryBox_unwrap() throws {
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
@@ -107,29 +107,29 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
     }
 
     func test_AnyServiceDiscovery_lookup() throws {
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
         let semaphore = DispatchSemaphore(value: 0)
 
-        anyServiceDiscovery.lookupAndUnwrap(self.fooService) { (fooResult: Result<[Instance], Error>) in
+        anyServiceDiscovery.lookupAndUnwrap(Self.fooService) { (fooResult: Result<[Instance], Error>) in
             guard case .success(let _fooInstances) = fooResult else {
-                return XCTFail("Failed to lookup instances for service[\(self.fooService)]")
+                return XCTFail("Failed to lookup instances for service[\(Self.fooService)]")
             }
-            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
-            XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+            XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
 
             semaphore.signal()
         }
 
         if semaphore.wait(timeout: DispatchTime.now() + .seconds(1)) == .timedOut {
-            return XCTFail("Failed to lookup instances for service[\(self.fooService)]: timed out")
+            return XCTFail("Failed to lookup instances for service[\(Self.fooService)]: timed out")
         }
     }
 
     func test_AnyServiceDiscovery_subscribe() throws {
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
@@ -140,7 +140,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Result #1: LookupError.unknownService because bar-service is not registered
         // Result #2: Later we register bar-service and that should notify the subscriber
         anyServiceDiscovery.subscribeAndUnwrap(
-            to: self.barService,
+            to: Self.barService,
             onNext: { (result: Result<[Instance], Error>) -> Void in
                 resultCounter.wrappingIncrement(ordering: .relaxed)
 
@@ -151,13 +151,13 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
                 switch result {
                 case .failure(let error):
                     guard resultCounter.load(ordering: .relaxed) == 1, let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                        return XCTFail("Expected the first result to be LookupError.unknownService since \(self.barService) is not registered, got \(error)")
+                        return XCTFail("Expected the first result to be LookupError.unknownService since \(Self.barService) is not registered, got \(error)")
                     }
                 case .success(let instances):
                     guard resultCounter.load(ordering: .relaxed) == 2 else {
                         return XCTFail("Expected to receive instances list on the second result only, but at result #\(resultCounter.load(ordering: .relaxed)) got \(instances)")
                     }
-                    XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                    XCTAssertEqual(instances, Self.barInstances, "Expected instances of \(Self.barService) to be \(Self.barInstances), got \(instances)")
                     semaphore.signal()
                 }
             }
@@ -165,7 +165,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
 
         // Allow time for first result of `subscribe`
         usleep(100_000)
-        serviceDiscovery.register(self.barService, instances: self.barInstances)
+        serviceDiscovery.register(Self.barService, instances: Self.barInstances)
 
         _ = semaphore.wait(timeout: DispatchTime.now() + .milliseconds(200))
 
@@ -173,7 +173,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
     }
 
     func test_AnyServiceDiscovery_unwrap() throws {
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
@@ -187,14 +187,14 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         #if !(compiler(>=5.5) && canImport(_Concurrency))
         try XCTSkipIf(true)
         #else
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
         runAsyncAndWaitFor {
-            let _fooInstances = try await boxedServiceDiscovery.lookup(self.fooService)
-            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
-            XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+            let _fooInstances = try await boxedServiceDiscovery.lookup(Self.fooService)
+            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+            XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
         }
         #endif
     }
@@ -204,7 +204,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         #if !(compiler(>=5.5) && canImport(_Concurrency))
         try XCTSkipIf(true)
         #else
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
@@ -215,20 +215,20 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
-            serviceDiscovery.register(self.barService, instances: [])
+            serviceDiscovery.register(Self.barService, instances: [])
             usleep(50000)
             // Update #2
-            serviceDiscovery.register(self.barService, instances: self.barInstances)
+            serviceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
         let task = Task.detached { () -> Void in
             do {
-                for try await instances in boxedServiceDiscovery.subscribe(to: self.barService) {
+                for try await instances in boxedServiceDiscovery.subscribe(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
                     case 1:
-                        XCTAssertEqual(instances, [], "Expected instances of \(self.barService) to be empty, got \(instances)")
+                        XCTAssertEqual(instances, [], "Expected instances of \(Self.barService) to be empty, got \(instances)")
                     case 2:
-                        XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                        XCTAssertEqual(instances, Self.barInstances, "Expected instances of \(Self.barService) to be \(Self.barInstances), got \(instances)")
                         // This causes the stream to terminate
                         serviceDiscovery.shutdown()
                     default:
@@ -261,14 +261,14 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         #if !(compiler(>=5.5) && canImport(_Concurrency))
         try XCTSkipIf(true)
         #else
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
         runAsyncAndWaitFor {
-            let _fooInstances: [Instance] = try await anyServiceDiscovery.lookupAndUnwrap(self.fooService)
-            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(self.fooService)] to have 1 instance, got \(_fooInstances.count)")
-            XCTAssertEqual(_fooInstances, self.fooInstances, "Expected service[\(self.fooService)] to have instances \(self.fooInstances), got \(_fooInstances)")
+            let _fooInstances: [Instance] = try await anyServiceDiscovery.lookupAndUnwrap(Self.fooService)
+            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+            XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
         }
         #endif
     }
@@ -278,7 +278,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         #if !(compiler(>=5.5) && canImport(_Concurrency))
         try XCTSkipIf(true)
         #else
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [fooService: self.fooInstances])
+        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
@@ -289,20 +289,20 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
-            serviceDiscovery.register(self.barService, instances: [])
+            serviceDiscovery.register(Self.barService, instances: [])
             usleep(50000)
             // Update #2
-            serviceDiscovery.register(self.barService, instances: self.barInstances)
+            serviceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
         let task = Task.detached { () -> Void in
             do {
-                for try await instances: [Instance] in anyServiceDiscovery.subscribeAndUnwrap(to: self.barService) {
+                for try await instances: [Instance] in anyServiceDiscovery.subscribeAndUnwrap(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
                     case 1:
-                        XCTAssertEqual(instances, [], "Expected instances of \(self.barService) to be empty, got \(instances)")
+                        XCTAssertEqual(instances, [], "Expected instances of \(Self.barService) to be empty, got \(instances)")
                     case 2:
-                        XCTAssertEqual(instances, self.barInstances, "Expected instances of \(self.barService) to be \(self.barInstances), got \(instances)")
+                        XCTAssertEqual(instances, Self.barInstances, "Expected instances of \(Self.barService) to be \(Self.barInstances), got \(instances)")
                         // This causes the stream to terminate
                         serviceDiscovery.shutdown()
                     default:
