@@ -20,11 +20,10 @@ import Foundation // for NSLock
 public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
     private let configuration: Configuration
 
-    private let serviceInstancesLock = NSLock()
-    private var serviceInstances: [Service: [Instance]]
-
-    private let serviceSubscriptionsLock = NSLock()
-    private var serviceSubscriptions: [Service: [Subscription]] = [:]
+    private let lock = NSLock()
+    private var _isShutdown: Bool = false
+    private var _serviceInstances: [Service: [Instance]]
+    private var _serviceSubscriptions: [Service: [Subscription]] = [:]
 
     private let queue: DispatchQueue
 
@@ -32,39 +31,34 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         self.configuration.defaultLookupTimeout
     }
 
-    private let _isShutdown = ManagedAtomic<Bool>(false)
-
     public var isShutdown: Bool {
-        self._isShutdown.load(ordering: .acquiring)
+        self.lock.withLock { self._isShutdown }
     }
 
     public init(configuration: Configuration, queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)) {
         self.configuration = configuration
-        self.serviceInstances = configuration.serviceInstances
+        self._serviceInstances = configuration.serviceInstances
         self.queue = queue
     }
 
     public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
-        guard !self.isShutdown else {
-            callback(.failure(ServiceDiscoveryError.unavailable))
-            return
-        }
-
         let isDone = ManagedAtomic<Bool>(false)
 
         let lookupWorkItem = DispatchWorkItem {
-            var result: Result<[Instance], Error>! // !-safe because if-else block always set `result`
+            let result = self.lock.withLock { () -> Result<[Instance], Error> in
+                if self._isShutdown {
+                    return .failure(ServiceDiscoveryError.unavailable)
+                }
 
-            self.serviceInstancesLock.withLock {
-                if let instances = self.serviceInstances[service] {
-                    result = .success(instances)
+                if let instances = self._lookupNow(service) {
+                    return .success(instances)
                 } else {
-                    result = .failure(LookupError.unknownService)
+                    return .failure(LookupError.unknownService)
                 }
             }
 
             if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
-                callback(result)
+                callback(result.mapError({ $0 as Error }))
             }
         }
 
@@ -80,58 +74,100 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         }
     }
 
+    private enum SubscribeAction {
+        case cancelSinceShutdown
+        case yieldFirstElement([Instance]?)
+    }
+
     @discardableResult
-    public func subscribe(to service: Service, onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }) -> CancellationToken {
-        guard !self.isShutdown else {
+    public func subscribe(
+        to service: Service,
+        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
+        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
+    ) -> CancellationToken {
+        let cancellationToken = CancellationToken(completionHandler: completionHandler)
+        let subscription = Subscription(
+            nextResultHandler: nextResultHandler,
+            completionHandler: completionHandler,
+            cancellationToken: cancellationToken
+        )
+
+        let action = self.lock.withLock { () -> SubscribeAction in
+            guard !self._isShutdown else {
+                return .cancelSinceShutdown
+            }
+
+            // first add the subscription
+            var subscriptions = self._serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
+            subscriptions.append(subscription)
+            self._serviceSubscriptions[service] = subscriptions
+
+            return .yieldFirstElement(self._lookupNow(service))
+        }
+
+        switch action {
+        case .cancelSinceShutdown:
             completionHandler(.serviceDiscoveryUnavailable)
             return CancellationToken(isCancelled: true)
+        case .yieldFirstElement(.some(let instances)):
+            self.queue.async { nextResultHandler(.success(instances)) }
+            return cancellationToken
+        case .yieldFirstElement(.none):
+            self.queue.async { nextResultHandler(.failure(LookupError.unknownService)) }
+            return cancellationToken
         }
 
-        // Call `lookup` once and send result to subscriber
-        self.lookup(service, callback: nextResultHandler)
-
-        let cancellationToken = CancellationToken(completionHandler: completionHandler)
-        let subscription = Subscription(nextResultHandler: nextResultHandler, completionHandler: completionHandler, cancellationToken: cancellationToken)
-
-        // Save the subscription
-        self.serviceSubscriptionsLock.withLock {
-            var subscriptions = self.serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
-            subscriptions.append(subscription)
-            self.serviceSubscriptions[service] = subscriptions
-        }
-
-        return cancellationToken
     }
 
     /// Registers a service and its `instances`.
-    public func register(_ service: Service, instances: [Instance]) {
-        guard !self.isShutdown else { return }
+    public func register(_ service: Service, instances newInstances: [Instance]) {
+        let maybeSubscriptions = self.lock.withLock { () -> [Subscription]? in
+            guard !self._isShutdown else { return nil }
 
-        var previousInstances: [Instance]?
-        self.serviceInstancesLock.withLock {
-            previousInstances = self.serviceInstances[service]
-            self.serviceInstances[service] = instances
+            let previousInstances = self._serviceInstances[service]
+            guard previousInstances != newInstances else { return nil }
+
+            self._serviceInstances[service] = newInstances
+
+            let subscriptions = self._serviceSubscriptions[service]
+            return subscriptions
         }
 
-        self.serviceSubscriptionsLock.withLock {
-            if !self.isShutdown, instances != previousInstances, let subscriptions = self.serviceSubscriptions[service] {
-                // Notify subscribers whenever instances change
-                subscriptions
-                    .filter { !$0.cancellationToken.isCancelled }
-                    .forEach { $0.nextResultHandler(.success(instances)) }
-            }
+        guard let subscriptions = maybeSubscriptions else { return }
+        for sub in subscriptions.lazy.filter({ !$0.cancellationToken.isCancelled }) {
+            sub.nextResultHandler(.success(newInstances))
         }
     }
 
     public func shutdown() {
-        guard self._isShutdown.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged else { return }
-
-        self.serviceSubscriptionsLock.withLock {
-            self.serviceSubscriptions.values.forEach { subscriptions in
-                subscriptions
-                    .filter { !$0.cancellationToken.isCancelled }
-                    .forEach { $0.completionHandler(.serviceDiscoveryUnavailable) }
+        let maybeServiceSubscriptions = self.lock.withLock { () -> [Service: [Subscription]].Values? in
+            if self._isShutdown {
+                return nil
             }
+
+            self._isShutdown = true
+            let subscriptions = self._serviceSubscriptions
+            self._serviceSubscriptions = [:]
+            self._serviceInstances = [:]
+            return subscriptions.values
+        }
+
+        guard let serviceSubscriptions = maybeServiceSubscriptions else {
+            return
+        }
+
+        for subscriptions in serviceSubscriptions {
+            for sub in subscriptions.lazy.filter({ !$0.cancellationToken.isCancelled }) {
+                sub.completionHandler(.serviceDiscoveryUnavailable)
+            }
+        }
+    }
+
+    private func _lookupNow(_ service: Service) -> [Instance]? {
+        if let instances = self._serviceInstances[service] {
+            return instances
+        } else {
+            return nil
         }
     }
 
