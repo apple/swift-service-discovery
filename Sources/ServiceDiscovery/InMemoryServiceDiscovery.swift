@@ -32,7 +32,9 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     public var isShutdown: Bool {
-        self.lock.withLock { self._isShutdown }
+        self.lock.withLock {
+            self._isShutdown
+        }
     }
 
     public init(configuration: Configuration, queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)) {
@@ -58,7 +60,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
             }
 
             if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
-                callback(result.mapError({ $0 as Error }))
+                callback(result.mapError { $0 as Error })
             }
         }
 
@@ -116,7 +118,6 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
             self.queue.async { nextResultHandler(.failure(LookupError.unknownService)) }
             return cancellationToken
         }
-
     }
 
     /// Registers a service and its `instances`.
@@ -140,7 +141,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     public func shutdown() {
-        let maybeServiceSubscriptions = self.lock.withLock { () -> [Service: [Subscription]].Values? in
+        let maybeServiceSubscriptions = self.lock.withLock { () -> Dictionary<Service, [Subscription]>.Values? in
             if self._isShutdown {
                 return nil
             }
@@ -209,11 +210,12 @@ public extension InMemoryServiceDiscovery {
 // MARK: - NSLock extensions
 
 private extension NSLock {
-    func withLock(_ body: () -> Void) {
+    func withLock<Result>(_ body: () throws -> Result) rethrows -> Result {
         self.lock()
         defer {
             self.unlock()
         }
-        body()
+        return try body()
     }
 }
+
