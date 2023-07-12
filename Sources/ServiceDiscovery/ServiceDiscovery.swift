@@ -43,10 +43,10 @@ public protocol ServiceDiscovery {
     ///   - service: The service to subscribe to
     ///
     /// -  Returns: A ``ServiceDiscoveryInstanceSequence`` async sequence.
-    func subscribe(_ service: Service) async throws -> any ServiceDiscoveryInstanceSequence<Instance>
+    func subscribe(_ service: Service) async throws -> any ServiceDiscoveryInstancesSequence<Instance>
 }
 
-public protocol ServiceDiscoveryInstanceSequence<Instance>: AsyncSequence where Self.Element == Instance {
+public protocol ServiceDiscoveryInstancesSequence<Instance>: AsyncSequence where Self.Element == [Instance] {
     associatedtype Instance
 }
 

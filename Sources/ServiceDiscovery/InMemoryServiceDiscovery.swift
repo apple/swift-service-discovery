@@ -32,7 +32,7 @@ public actor InMemoryServiceDiscovery<Service: Hashable, Instance>: ServiceDisco
         }
     }
 
-    public func subscribe(_ service: Service) async throws -> any ServiceDiscoveryInstanceSequence<Instance> {
+    public func subscribe(_ service: Service) async throws -> any ServiceDiscoveryInstancesSequence<Instance> {
         let (subscription, sequence) = Subscription.makeSubscription(terminationHandler: { subscription in
             Task {
                 await self.unsubscribe(service: service, subscription: subscription)
@@ -81,23 +81,23 @@ public actor InMemoryServiceDiscovery<Service: Hashable, Instance>: ServiceDisco
     }
 
     private class Subscription: Identifiable, Hashable {
-        private let continuation: AsyncThrowingStream<Instance, Error>.Continuation
+        private let continuation: AsyncThrowingStream<[Instance], Error>.Continuation
 
-        static func makeSubscription(terminationHandler: @Sendable @escaping (Subscription) -> Void) -> (Subscription, InstanceSequence) {
+        static func makeSubscription(terminationHandler: @Sendable @escaping (Subscription) -> Void) -> (Subscription, InstancesSequence) {
             #if swift(<5.9)
             var continuation: AsyncThrowingStream<Instance, Error>.Continuation!
             let stream = AsyncThrowingStream { _continuation in
                 continuation = _continuation
             }
             #else
-            let (stream, continuation) = AsyncThrowingStream.makeStream(of: Instance.self)
+            let (stream, continuation) = AsyncThrowingStream.makeStream(of: [Instance].self)
             #endif
             let subscription = Subscription(continuation)
             continuation.onTermination = { @Sendable _ in terminationHandler(subscription) }
-            return (subscription, InstanceSequence(stream))
+            return (subscription, InstancesSequence(stream))
         }
 
-        private init(_ continuation: AsyncThrowingStream<Instance, Error>.Continuation) {
+        private init(_ continuation: AsyncThrowingStream<[Instance], Error>.Continuation) {
             self.continuation = continuation
         }
 
@@ -105,9 +105,7 @@ public actor InMemoryServiceDiscovery<Service: Hashable, Instance>: ServiceDisco
             guard !Task.isCancelled else {
                 return
             }
-            for instance in instances {
-                self.continuation.yield(instance)
-            }
+            self.continuation.yield(instances)
         }
 
         func yield(_ error: Error) {
@@ -126,13 +124,13 @@ public actor InMemoryServiceDiscovery<Service: Hashable, Instance>: ServiceDisco
         }
     }
 
-    private struct InstanceSequence: ServiceDiscoveryInstanceSequence {
-        typealias Element = Instance
-        typealias Underlying = AsyncThrowingStream<Instance, Error>
+    private struct InstancesSequence: ServiceDiscoveryInstancesSequence {
+        typealias Element = [Instance]
+        typealias Underlying = AsyncThrowingStream<[Instance], Error>
 
         private let underlying: Underlying
 
-        init(_ underlying: AsyncThrowingStream<Instance, Error>) {
+        init(_ underlying: AsyncThrowingStream<[Instance], Error>) {
             self.underlying = underlying
         }
 
@@ -147,7 +145,7 @@ public actor InMemoryServiceDiscovery<Service: Hashable, Instance>: ServiceDisco
                 self.underlying = iterator
             }
 
-            mutating func next() async throws -> Instance? {
+            mutating func next() async throws -> [Instance]? {
                 try await self.underlying.next()
             }
         }

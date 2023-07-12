@@ -89,25 +89,28 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         await serviceDiscovery.register(service: Self.barService, instances: [barInstances[0]])
 
         let task = Task {
-            for try await instance in try await serviceDiscovery.subscribe(Self.barService) {
+            for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+                // FIXME: casting to HostPort due to a 5.9 compiler bug
+                let instances = instances as! [HostPort]
                 switch counter.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
-                    // FIXME: casting to HostPort due to a 5.9 compiler bug
-                    XCTAssertEqual(instance as? HostPort, barInstances[0])
-                    await serviceDiscovery.register(service: Self.barService, instances: Array(barInstances[1 ..< 3]))
+                    XCTAssertEqual(instances.count, 1)
+                    XCTAssertEqual(instances[0], barInstances[0])
+                    await serviceDiscovery.register(service: Self.barService, instances: [barInstances[1]])
                 case 2:
-                    // FIXME: casting to HostPort due to a 5.9 compiler bug
-                    XCTAssertEqual(instance as? HostPort, barInstances[1])
+                    XCTAssertEqual(instances.count, 1)
+                    XCTAssertEqual(instances[0], barInstances[1])
+                    await serviceDiscovery.register(service: Self.barService, instances: barInstances)
                 case 3:
-                    // FIXME: casting to HostPort due to a 5.9 compiler bug
-                    XCTAssertEqual(instance as? HostPort, barInstances[2])
+                    XCTAssertEqual(instances.count, barInstances.count)
+                    XCTAssertEqual(instances, barInstances)
                     #if os(macOS)
                     expectation.fulfill()
                     #else
                     semaphore.signal()
                     #endif
                 default:
-                    XCTFail("Expected to receive \(barInstances.count) instances")
+                    XCTFail("Expected to be called 3 times")
                 }
             }
         }
@@ -117,13 +120,13 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         #else
         XCTAssertEqual(.success, semaphore.wait(timeout: .now() + 1.0))
         #endif
+
+        XCTAssertEqual(counter.load(ordering: .sequentiallyConsistent), 3, "Expected to be called 3 times")
+
         task.cancel()
-
-        XCTAssertEqual(counter.load(ordering: .sequentiallyConsistent), barInstances.count, "Expected to receive \(barInstances.count) instances")
-
         await serviceDiscovery.register(service: Self.barService, instances: Self.barInstances)
 
-        XCTAssertEqual(counter.load(ordering: .sequentiallyConsistent), barInstances.count, "Expected to receive \(barInstances.count) instances")
+        XCTAssertEqual(counter.load(ordering: .sequentiallyConsistent), 3, "Expected to be called 3 times")
     }
 
     func testCancellation() async throws {
@@ -150,36 +153,43 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let counter1 = ManagedAtomic<Int>(0)
         let task1 = Task {
-            for try await instance in try await serviceDiscovery.subscribe(Self.barService) {
+            for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+                // FIXME: casting to HostPort due to a 5.9 compiler bug
+                let instances = instances as! [HostPort]
                 switch counter1.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
-                    XCTAssertEqual(instance as? HostPort, barInstances[0])
+                    XCTAssertEqual(instances.count, 1)
+                    XCTAssertEqual(instances[0], barInstances[0])
                     #if os(macOS)
                     expectation1.fulfill()
                     #else
                     semaphore1.signal()
                     #endif
                 default:
-                    XCTFail("Expected to receive 1 instances")
+                    XCTFail("Expected to be called 1 time")
                 }
             }
         }
 
         let counter2 = ManagedAtomic<Int>(0)
         let task2 = Task {
-            for try await instance in try await serviceDiscovery.subscribe(Self.barService) {
+            for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+                // FIXME: casting to HostPort due to a 5.9 compiler bug
+                let instances = instances as! [HostPort]
                 switch counter2.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
-                    XCTAssertEqual(instance as? HostPort, barInstances[0])
+                    XCTAssertEqual(instances.count, 1)
+                    XCTAssertEqual(instances[0], barInstances[0])
                 case 2:
-                    XCTAssertEqual(instance as? HostPort, barInstances[1])
+                    XCTAssertEqual(instances.count, barInstances.count)
+                    XCTAssertEqual(instances, barInstances)
                     #if os(macOS)
                     expectation2.fulfill()
                     #else
                     semaphore2.signal()
                     #endif
                 default:
-                    XCTFail("Expected to receive 2 instances")
+                    XCTFail("Expected to be called 2 times")
                 }
             }
         }
@@ -190,10 +200,10 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         XCTAssertEqual(.success, semaphore1.wait(timeout: .now() + 1.0))
         #endif
         task1.cancel()
-        XCTAssertEqual(counter1.load(ordering: .sequentiallyConsistent), 1, "Expected to receive \(barInstances.count) instances")
-        XCTAssertEqual(counter2.load(ordering: .sequentiallyConsistent), 1, "Expected to receive \(barInstances.count) instances")
+        XCTAssertEqual(counter1.load(ordering: .sequentiallyConsistent), 1, "Expected to be called 1 time")
+        XCTAssertEqual(counter2.load(ordering: .sequentiallyConsistent), 1, "Expected to be called 1 time")
 
-        await serviceDiscovery.register(service: Self.barService, instances: [barInstances[1]])
+        await serviceDiscovery.register(service: Self.barService, instances: barInstances)
         #if os(macOS)
         await fulfillment(of: [expectation2], timeout: 1.0)
         #else
@@ -201,7 +211,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         #endif
         task2.cancel()
 
-        XCTAssertEqual(counter1.load(ordering: .sequentiallyConsistent), 1, "Expected to receive \(barInstances.count) instances")
-        XCTAssertEqual(counter2.load(ordering: .sequentiallyConsistent), 2, "Expected to receive \(barInstances.count) instances")
+        XCTAssertEqual(counter1.load(ordering: .sequentiallyConsistent), 1, "Expected to be called 1 time")
+        XCTAssertEqual(counter2.load(ordering: .sequentiallyConsistent), 2, "Expected to be called 2 times")
     }
 }
