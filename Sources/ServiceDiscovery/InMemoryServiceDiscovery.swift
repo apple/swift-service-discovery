@@ -85,7 +85,7 @@ public actor InMemoryServiceDiscovery<Service: Hashable, Instance>: ServiceDisco
 
         static func makeSubscription(terminationHandler: @Sendable @escaping (Subscription) -> Void) -> (Subscription, InstancesSequence) {
             #if swift(<5.9)
-            var continuation: AsyncThrowingStream<Instance, Error>.Continuation!
+            var continuation: AsyncThrowingStream<[Instance], Error>.Continuation!
             let stream = AsyncThrowingStream { _continuation in
                 continuation = _continuation
             }

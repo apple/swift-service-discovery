@@ -152,6 +152,8 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         await serviceDiscovery.register(service: Self.barService, instances: [barInstances[0]])
 
         let counter1 = ManagedAtomic<Int>(0)
+        let counter2 = ManagedAtomic<Int>(0)
+
         let task1 = Task {
             for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
@@ -160,18 +162,19 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
                 case 1:
                     XCTAssertEqual(instances.count, 1)
                     XCTAssertEqual(instances[0], barInstances[0])
-                    #if os(macOS)
-                    expectation1.fulfill()
-                    #else
-                    semaphore1.signal()
-                    #endif
+                    if counter2.load(ordering: .sequentiallyConsistent) == 1 {
+                        #if os(macOS)
+                        expectation1.fulfill()
+                        #else
+                        semaphore1.signal()
+                        #endif
+                    }
                 default:
                     XCTFail("Expected to be called 1 time")
                 }
             }
         }
 
-        let counter2 = ManagedAtomic<Int>(0)
         let task2 = Task {
             for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
@@ -180,6 +183,13 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
                 case 1:
                     XCTAssertEqual(instances.count, 1)
                     XCTAssertEqual(instances[0], barInstances[0])
+                    if counter1.load(ordering: .sequentiallyConsistent) == 1 {
+                        #if os(macOS)
+                        expectation1.fulfill()
+                        #else
+                        semaphore1.signal()
+                        #endif
+                    }
                 case 2:
                     XCTAssertEqual(instances.count, barInstances.count)
                     XCTAssertEqual(instances, barInstances)
@@ -200,6 +210,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         XCTAssertEqual(.success, semaphore1.wait(timeout: .now() + 1.0))
         #endif
         task1.cancel()
+
         XCTAssertEqual(counter1.load(ordering: .sequentiallyConsistent), 1, "Expected to be called 1 time")
         XCTAssertEqual(counter2.load(ordering: .sequentiallyConsistent), 1, "Expected to be called 1 time")
 
