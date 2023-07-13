@@ -13,122 +13,76 @@
 //===----------------------------------------------------------------------===//
 
 public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
-
     private let configuration: Configuration
 
     private var instances: [Instance]
-    private var subscriptions: Set<Subscription>
+    private var nextSubscriptionID = 0
+    private var subscriptions: [Int: AsyncThrowingStream<[Instance], Error>.Continuation]
 
     public init(configuration: Configuration = .default) {
         self.configuration = configuration
         self.instances = configuration.instances
-        self.subscriptions = []
+        self.subscriptions = [:]
     }
 
-    public func lookup() async throws -> [Instance] {
-        return self.instances
+    public func lookup() -> [Instance] {
+        self.instances
     }
 
-    public func subscribe() async throws -> any ServiceDiscoveryInstancesSequence {
-        let (subscription, sequence) = Subscription.makeSubscription(terminationHandler: { subscription in
+    public func subscribe() -> Subscription {
+        defer { self.nextSubscriptionID += 1 }
+        let subscriptionID = self.nextSubscriptionID
+
+        let (stream, continuation) = AsyncThrowingStream.makeStream(of: [Instance].self)
+        continuation.onTermination = { _ in
             Task {
-                await self.unsubscribe(subscription: subscription)
+                await self.unsubscribe(subscriptionID: subscriptionID)
             }
-        })
-
-        // reduce CoW
-        self.subscriptions.insert(subscription)
-
-        do {
-            let instances = try await self.lookup()
-            subscription.yield(instances)
-        } catch {
-            subscription.yield(error)
         }
 
-        return sequence
-    }
+        self.subscriptions[subscriptionID] = continuation
 
-    private func unsubscribe(subscription: Subscription) {
-        self.subscriptions.remove(subscription)
+        let instances = self.lookup()
+        continuation.yield(instances)
+
+        return Subscription(stream)
     }
 
     /// Registers  new `instances`.
-    public func register(instances: [Instance]) async {
+    public func register(instances: [Instance]) {
         self.instances = instances
 
-        for subscription in self.subscriptions {
-            subscription.yield(instances)
+        for continuations in self.subscriptions.values {
+            continuations.yield(instances)
         }
     }
 
-    private class Subscription: Identifiable, Hashable {
-        private let continuation: AsyncThrowingStream<[Instance], Error>.Continuation
-
-        static func makeSubscription(terminationHandler: @Sendable @escaping (Subscription) -> Void) -> (Subscription, InstancesSequence) {
-            #if swift(<5.9)
-            var continuation: AsyncThrowingStream<[Instance], Error>.Continuation!
-            let stream = AsyncThrowingStream { _continuation in
-                continuation = _continuation
-            }
-            #else
-            let (stream, continuation) = AsyncThrowingStream.makeStream(of: [Instance].self)
-            #endif
-            let subscription = Subscription(continuation)
-            continuation.onTermination = { @Sendable _ in terminationHandler(subscription) }
-            return (subscription, InstancesSequence(stream))
-        }
-
-        private init(_ continuation: AsyncThrowingStream<[Instance], Error>.Continuation) {
-            self.continuation = continuation
-        }
-
-        func yield(_ instances: [Instance]) {
-            guard !Task.isCancelled else {
-                return
-            }
-            self.continuation.yield(instances)
-        }
-
-        func yield(_ error: Error) {
-            guard !Task.isCancelled else {
-                return
-            }
-            self.continuation.yield(with: .failure(error))
-        }
-
-        static func == (lhs: Subscription, rhs: Subscription) -> Bool {
-            lhs.id == rhs.id
-        }
-
-        func hash(into hasher: inout Hasher) {
-            self.id.hash(into: &hasher)
-        }
+    private func unsubscribe(subscriptionID: Int) {
+        self.subscriptions.removeValue(forKey: subscriptionID)
     }
 
-    private struct InstancesSequence: ServiceDiscoveryInstancesSequence {
-        typealias Element = [Instance]
-        typealias Underlying = AsyncThrowingStream<[Instance], Error>
+    public struct Subscription: AsyncSequence {
+        public typealias Element = [Instance]
 
-        private let underlying: Underlying
+        private var backing: AsyncThrowingStream<[Instance], Error>
 
-        init(_ underlying: AsyncThrowingStream<[Instance], Error>) {
-            self.underlying = underlying
+        init(_ backing: AsyncThrowingStream<[Instance], Error>) {
+            self.backing = backing
         }
 
-        func makeAsyncIterator() -> AsyncIterator {
-            AsyncIterator(self.underlying.makeAsyncIterator())
+        public func makeAsyncIterator() -> AsyncIterator {
+            AsyncIterator(self.backing.makeAsyncIterator())
         }
 
-        struct AsyncIterator: AsyncIteratorProtocol {
-            private var underlying: Underlying.AsyncIterator
+        public struct AsyncIterator: AsyncIteratorProtocol {
+            private var backing: AsyncThrowingStream<[Instance], Error>.Iterator
 
-            init(_ iterator: Underlying.AsyncIterator) {
-                self.underlying = iterator
+            init(_ backing: AsyncThrowingStream<[Instance], Error>.Iterator) {
+                self.backing = backing
             }
 
-            mutating func next() async throws -> [Instance]? {
-                try await self.underlying.next()
+            public mutating func next() async throws -> [Instance]? {
+                try await self.backing.next()
             }
         }
     }
@@ -153,3 +107,17 @@ public extension InMemoryServiceDiscovery {
     }
 }
 
+#if swift(<5.9)
+// Async stream API backfil
+extension AsyncThrowingStream {
+    public static func makeStream(
+        of elementType: Element.Type = Element.self,
+        throwing failureType: Failure.Type = Failure.self,
+        bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
+    ) -> (stream: AsyncThrowingStream<Element, Failure>, continuation: AsyncThrowingStream<Element, Failure>.Continuation) where Failure == Error {
+      var continuation: AsyncThrowingStream<Element, Failure>.Continuation!
+      let stream = AsyncThrowingStream<Element, Failure>(bufferingPolicy: limit) { continuation = $0 }
+      return (stream: stream, continuation: continuation!)
+    }
+}
+#endif
