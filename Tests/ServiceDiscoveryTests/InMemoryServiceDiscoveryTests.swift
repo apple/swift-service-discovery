@@ -89,7 +89,10 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         await serviceDiscovery.register(service: Self.barService, instances: [barInstances[0]])
 
         let task = Task {
-            for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+            //for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+            // FIXME: using iterator instead of for..in due to 5.7 compiler bug
+            var iterator = try await serviceDiscovery.subscribe(Self.barService).makeAsyncIterator()
+            while let instances = try await iterator.next() {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
                 let instances = instances as! [HostPort]
                 switch counter.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
@@ -155,7 +158,10 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let counter2 = ManagedAtomic<Int>(0)
 
         let task1 = Task {
-            for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+            // FIXME: using iterator instead of for..in due to 5.7 compiler bug
+            var iterator = try await serviceDiscovery.subscribe(Self.barService).makeAsyncIterator()
+            while let instances = try await iterator.next() {
+            //for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
                 let instances = instances as! [HostPort]
                 switch counter1.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
@@ -176,7 +182,10 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         }
 
         let task2 = Task {
-            for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+            // FIXME: using iterator instead of for..in due to 5.7 compiler bug
+            var iterator = try await serviceDiscovery.subscribe(Self.barService).makeAsyncIterator()
+            while let instances = try await iterator.next() {
+            //for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
                 let instances = instances as! [HostPort]
                 switch counter2.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
