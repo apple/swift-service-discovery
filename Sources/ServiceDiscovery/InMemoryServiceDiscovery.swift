@@ -12,71 +12,53 @@
 //
 //===----------------------------------------------------------------------===//
 
-public actor InMemoryServiceDiscovery<Service: Hashable, Instance>: ServiceDiscovery {
+public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
+
     private let configuration: Configuration
 
-    private var instances: [Service: [Instance]]
-    private var subscriptions: [Service: Set<Subscription>]
+    private var instances: [Instance]
+    private var subscriptions: Set<Subscription>
 
     public init(configuration: Configuration = .default) {
         self.configuration = configuration
         self.instances = configuration.instances
-        self.subscriptions = [:]
+        self.subscriptions = []
     }
 
-    public func lookup(_ service: Service, deadline: ContinuousClock.Instant?) async throws -> [Instance] {
-        if let instances = self.instances[service] {
-            return instances
-        } else {
-            throw LookupError.unknownService
-        }
+    public func lookup() async throws -> [Instance] {
+        return self.instances
     }
 
-    public func subscribe(_ service: Service) async throws -> any ServiceDiscoveryInstancesSequence<Instance> {
+    public func subscribe() async throws -> any ServiceDiscoveryInstancesSequence {
         let (subscription, sequence) = Subscription.makeSubscription(terminationHandler: { subscription in
             Task {
-                await self.unsubscribe(service: service, subscription: subscription)
+                await self.unsubscribe(subscription: subscription)
             }
         })
 
         // reduce CoW
-        var subscriptions = self.subscriptions.removeValue(forKey: service) ?? []
-        subscriptions.insert(subscription)
-        self.subscriptions[service] = subscriptions
+        self.subscriptions.insert(subscription)
 
         do {
-            let instances = try await self.lookup(service, deadline: nil)
+            let instances = try await self.lookup()
             subscription.yield(instances)
         } catch {
-            // FIXME: nicer try/catch syntax?
-            if let lookupError = error as? LookupError, lookupError == LookupError.unknownService {
-                subscription.yield([])
-            } else {
-                subscription.yield(error)
-            }
+            subscription.yield(error)
         }
 
         return sequence
     }
 
-    private func unsubscribe(service: Service, subscription: Subscription) {
-        guard var subscriptions = self.subscriptions.removeValue(forKey: service) else {
-            return
-        }
-        subscriptions.remove(subscription)
-        if !subscriptions.isEmpty {
-            self.subscriptions[service] = subscriptions
-        }
+    private func unsubscribe(subscription: Subscription) {
+        self.subscriptions.remove(subscription)
     }
 
-    /// Registers `service` and its `instances`.
-    public func register(service: Service, instances: [Instance]) async {
-        self.instances[service] = instances
+    /// Registers  new `instances`.
+    public func register(instances: [Instance]) async {
+        self.instances = instances
 
-        if let subscriptions = self.subscriptions[service] {
-            for subscription in subscriptions {
-                subscription.yield(instances)
-            }
+        for subscription in self.subscriptions {
+            subscription.yield(instances)
         }
     }
 
@@ -154,17 +136,17 @@ public actor InMemoryServiceDiscovery<Service: Hashable, Instance>: ServiceDisco
 
 public extension InMemoryServiceDiscovery {
     struct Configuration {
-        public let instances: [Service: [Instance]]
+        public let instances: [Instance]
 
         /// Default configuration
         public static var `default`: Configuration {
             .init(
-                instances: [:]
+                instances: []
             )
         }
 
         public init(
-            instances: [Service: [Instance]]
+            instances: [Instance]
         ) {
             self.instances = instances
         }

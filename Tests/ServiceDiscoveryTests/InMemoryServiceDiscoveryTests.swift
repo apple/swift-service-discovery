@@ -20,63 +20,44 @@ import Dispatch
 import XCTest
 
 class InMemoryServiceDiscoveryTests: XCTestCase {
-    typealias Service = String
     typealias Instance = HostPort
 
-    static let fooService = "fooService"
-    static let fooInstances = [
+    static let mockInstances1 = [
         HostPort(host: "localhost", port: 7001),
+        HostPort(host: "localhost", port: 7002),
+        HostPort(host: "localhost", port: 7003),
     ]
 
-    static let barService = "bar-service"
-    static let barInstances = [
-        HostPort(host: "localhost", port: 9001),
-        HostPort(host: "localhost", port: 9002),
+    static let mockInstances2 = [
+        HostPort(host: "localhost", port: 8001),
+        HostPort(host: "localhost", port: 8002),
+        HostPort(host: "localhost", port: 8003),
     ]
 
     func testLookup() async throws {
         let configuration = InMemoryServiceDiscovery.Configuration(
-            instances: [
-                Self.fooService: Self.fooInstances,
-                Self.barService: Self.barInstances,
-            ]
+            instances: Self.mockInstances1
         )
 
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
 
-        let fooInstances = try await serviceDiscovery.lookup(Self.fooService, deadline: .none)
-        XCTAssertEqual(fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(fooInstances)")
+        do {
+            let result = try await serviceDiscovery.lookup()
+            XCTAssertEqual(result, Self.mockInstances1, "Expected \(Self.mockInstances1)")
+        }
 
-        let barInstances = try await serviceDiscovery.lookup(Self.barService, deadline: .none)
-        XCTAssertEqual(barInstances, Self.barInstances, "Expected service[\(Self.barService)] to have instances \(Self.barInstances), got \(barInstances)")
-    }
-
-    func testLookupErrorIfServiceUnknown() async throws {
-        let unknownService = "unknown-service"
-
-        let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(
-            instances: ["foo-service": []]
-        )
-        let serviceDiscovery = InMemoryServiceDiscovery<Service, Instance>(configuration: configuration)
-
-        await XCTAssertThrowsErrorAsync(try await serviceDiscovery.lookup(unknownService, deadline: .none)) { error in
-            guard let lookupError = error as? LookupError, case .unknownService = lookupError else {
-                return XCTFail("Expected LookupError.unknownService, got \(error)")
-            }
+        do {
+            await serviceDiscovery.register(instances: Self.mockInstances2)
+            let result = try await serviceDiscovery.lookup()
+            XCTAssertEqual(result, Self.mockInstances2, "Expected \(Self.mockInstances2)")
         }
     }
 
     func testSubscribe() async throws {
         let configuration = InMemoryServiceDiscovery.Configuration(
-            instances: [Self.fooService: Self.fooInstances]
+            instances: Self.mockInstances1
         )
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
-
-        let barInstances: [HostPort] = [
-            .init(host: "localhost", port: 8081),
-            .init(host: "localhost", port: 8082),
-            .init(host: "localhost", port: 8083),
-        ]
 
         let counter = ManagedAtomic<Int>(0)
 
@@ -86,27 +67,27 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let semaphore = DispatchSemaphore(value: 0)
         #endif
 
-        await serviceDiscovery.register(service: Self.barService, instances: [barInstances[0]])
+        await serviceDiscovery.register(instances: [Self.mockInstances2[0]])
 
         let task = Task {
-            //for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = try await serviceDiscovery.subscribe(Self.barService).makeAsyncIterator()
+            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
             while let instances = try await iterator.next() {
+            //for try await instances in try await serviceDiscovery.subscribe() {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
                 let instances = instances as! [HostPort]
                 switch counter.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
                     XCTAssertEqual(instances.count, 1)
-                    XCTAssertEqual(instances[0], barInstances[0])
-                    await serviceDiscovery.register(service: Self.barService, instances: [barInstances[1]])
+                    XCTAssertEqual(instances[0], Self.mockInstances2[0])
+                    await serviceDiscovery.register(instances: [Self.mockInstances2[1]])
                 case 2:
                     XCTAssertEqual(instances.count, 1)
-                    XCTAssertEqual(instances[0], barInstances[1])
-                    await serviceDiscovery.register(service: Self.barService, instances: barInstances)
+                    XCTAssertEqual(instances[0], Self.mockInstances2[1])
+                    await serviceDiscovery.register(instances: Self.mockInstances2)
                 case 3:
-                    XCTAssertEqual(instances.count, barInstances.count)
-                    XCTAssertEqual(instances, barInstances)
+                    XCTAssertEqual(instances.count, Self.mockInstances2.count)
+                    XCTAssertEqual(instances, Self.mockInstances2)
                     #if os(macOS)
                     expectation.fulfill()
                     #else
@@ -127,47 +108,43 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         XCTAssertEqual(counter.load(ordering: .sequentiallyConsistent), 3, "Expected to be called 3 times")
 
         task.cancel()
-        await serviceDiscovery.register(service: Self.barService, instances: Self.barInstances)
+        await serviceDiscovery.register(instances: Self.mockInstances2)
 
         XCTAssertEqual(counter.load(ordering: .sequentiallyConsistent), 3, "Expected to be called 3 times")
     }
 
     func testCancellation() async throws {
         let configuration = InMemoryServiceDiscovery.Configuration(
-            instances: [Self.fooService: Self.fooInstances]
+            instances: Self.mockInstances1
         )
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
-
-        let barInstances: [HostPort] = [
-            .init(host: "localhost", port: 8081),
-            .init(host: "localhost", port: 8082),
-            .init(host: "localhost", port: 8083),
-        ]
 
         #if os(macOS)
         let expectation1 = XCTestExpectation(description: #function)
         let expectation2 = XCTestExpectation(description: #function)
+        let expectation3 = XCTestExpectation(description: #function)
         #else
         let semaphore1 = DispatchSemaphore(value: 0)
         let semaphore2 = DispatchSemaphore(value: 0)
+        let semaphore3 = DispatchSemaphore(value: 0)
         #endif
 
-        await serviceDiscovery.register(service: Self.barService, instances: [barInstances[0]])
+        await serviceDiscovery.register(instances: [Self.mockInstances2[0]])
 
         let counter1 = ManagedAtomic<Int>(0)
         let counter2 = ManagedAtomic<Int>(0)
 
         let task1 = Task {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = try await serviceDiscovery.subscribe(Self.barService).makeAsyncIterator()
+            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
             while let instances = try await iterator.next() {
-            //for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+            //for try await instances in try await serviceDiscovery.subscribe() {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
                 let instances = instances as! [HostPort]
                 switch counter1.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
                     XCTAssertEqual(instances.count, 1)
-                    XCTAssertEqual(instances[0], barInstances[0])
+                    XCTAssertEqual(instances[0], Self.mockInstances2[0])
                     if counter2.load(ordering: .sequentiallyConsistent) == 1 {
                         #if os(macOS)
                         expectation1.fulfill()
@@ -183,15 +160,15 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let task2 = Task {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = try await serviceDiscovery.subscribe(Self.barService).makeAsyncIterator()
+            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
             while let instances = try await iterator.next() {
-            //for try await instances in try await serviceDiscovery.subscribe(Self.barService) {
+            //for try await instances in try await serviceDiscovery.subscribe() {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
                 let instances = instances as! [HostPort]
                 switch counter2.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
                     XCTAssertEqual(instances.count, 1)
-                    XCTAssertEqual(instances[0], barInstances[0])
+                    XCTAssertEqual(instances[0], Self.mockInstances2[0])
                     if counter1.load(ordering: .sequentiallyConsistent) == 1 {
                         #if os(macOS)
                         expectation1.fulfill()
@@ -200,8 +177,8 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
                         #endif
                     }
                 case 2:
-                    XCTAssertEqual(instances.count, barInstances.count)
-                    XCTAssertEqual(instances, barInstances)
+                    XCTAssertEqual(instances.count, Self.mockInstances2.count)
+                    XCTAssertEqual(instances, Self.mockInstances2)
                     #if os(macOS)
                     expectation2.fulfill()
                     #else
@@ -223,7 +200,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         XCTAssertEqual(counter1.load(ordering: .sequentiallyConsistent), 1, "Expected to be called 1 time")
         XCTAssertEqual(counter2.load(ordering: .sequentiallyConsistent), 1, "Expected to be called 1 time")
 
-        await serviceDiscovery.register(service: Self.barService, instances: barInstances)
+        await serviceDiscovery.register(instances: Self.mockInstances2)
         #if os(macOS)
         await fulfillment(of: [expectation2], timeout: 1.0)
         #else
@@ -233,5 +210,33 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         XCTAssertEqual(counter1.load(ordering: .sequentiallyConsistent), 1, "Expected to be called 1 time")
         XCTAssertEqual(counter2.load(ordering: .sequentiallyConsistent), 2, "Expected to be called 2 times")
+
+        // one more time
+
+        let task3 = Task {
+            // FIXME: using iterator instead of for..in due to 5.7 compiler bug
+            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
+            while let instances = try await iterator.next() {
+                // FIXME: casting to HostPort due to a 5.9 compiler bug
+                let instances = instances as! [HostPort]
+                XCTAssertEqual(instances.count,  Self.mockInstances1.count)
+                XCTAssertEqual(instances,  Self.mockInstances1)
+                if counter1.load(ordering: .sequentiallyConsistent) == 1 {
+                    #if os(macOS)
+                    expectation3.fulfill()
+                    #else
+                    semaphore3.signal()
+                    #endif
+                }
+            }
+        }
+
+        await serviceDiscovery.register(instances: Self.mockInstances1)
+        #if os(macOS)
+        await fulfillment(of: [expectation3], timeout: 1.0)
+        #else
+        XCTAssertEqual(.success, semaphore3.wait(timeout: .now() + 1.0))
+        #endif
+        task3.cancel()
     }
 }
