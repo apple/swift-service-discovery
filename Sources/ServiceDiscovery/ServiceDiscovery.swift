@@ -23,7 +23,7 @@ public protocol ServiceDiscovery: Sendable {
     /// Service instance type
     associatedtype Instance: Sendable
 
-    associatedtype Subscription: AsyncSequence where Subscription.Element == [Instance]
+    associatedtype DiscoverySequence: AsyncSequence where DiscoverySequence.Element == [Instance]
 
     /// Performs async lookup for the given service's instances.
     ///
@@ -35,5 +35,5 @@ public protocol ServiceDiscovery: Sendable {
     /// Returns a ``ServiceDiscoveryInstancesSequence``, which is an `AsyncSequence` and each of its items is a snapshot listing of service instances.
     ///
     /// -  Returns: A ``Subscription`` async sequence.
-    func subscribe() async throws -> Subscription
+    func subscribe() async throws -> DiscoverySequence
 }
