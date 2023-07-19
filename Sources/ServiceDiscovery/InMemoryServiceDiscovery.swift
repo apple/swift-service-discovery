@@ -29,7 +29,7 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
         self.instances
     }
 
-    public func subscribe() -> Subscription {
+    public func subscribe() -> DiscoverySequence {
         defer { self.nextSubscriptionID += 1 }
         let subscriptionID = self.nextSubscriptionID
 
@@ -45,7 +45,7 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
         let instances = self.lookup()
         continuation.yield(instances)
 
-        return Subscription(stream)
+        return DiscoverySequence(stream)
     }
 
     /// Registers  new `instances`.
@@ -61,28 +61,28 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
         self.subscriptions.removeValue(forKey: subscriptionID)
     }
 
-    public struct Subscription: AsyncSequence {
+    public struct DiscoverySequence: AsyncSequence {
         public typealias Element = [Instance]
 
-        private var backing: AsyncThrowingStream<[Instance], Error>
+        private var underlying: AsyncThrowingStream<[Instance], Error>
 
-        init(_ backing: AsyncThrowingStream<[Instance], Error>) {
-            self.backing = backing
+        init(_ underlying: AsyncThrowingStream<[Instance], Error>) {
+            self.underlying = underlying
         }
 
         public func makeAsyncIterator() -> AsyncIterator {
-            AsyncIterator(self.backing.makeAsyncIterator())
+            AsyncIterator(self.underlying.makeAsyncIterator())
         }
 
         public struct AsyncIterator: AsyncIteratorProtocol {
-            private var backing: AsyncThrowingStream<[Instance], Error>.Iterator
+            private var underlying: AsyncThrowingStream<[Instance], Error>.Iterator
 
-            init(_ backing: AsyncThrowingStream<[Instance], Error>.Iterator) {
-                self.backing = backing
+            init(_ underlying: AsyncThrowingStream<[Instance], Error>.Iterator) {
+                self.underlying = underlying
             }
 
             public mutating func next() async throws -> [Instance]? {
-                try await self.backing.next()
+                try await self.underlying.next()
             }
         }
     }
