@@ -20,9 +20,9 @@
 ///
 /// `ServiceDiscovery` implementations **MUST be thread-safe**.
 public protocol ServiceDiscovery: Sendable {
-    /// Service instance type
+    /// Service discovery instance type
     associatedtype Instance: Sendable
-
+    /// AsyncSequence of Service discovery instances
     associatedtype DiscoverySequence: AsyncSequence where DiscoverySequence.Element == [Instance]
 
     /// Performs async lookup for the given service's instances.
@@ -32,8 +32,6 @@ public protocol ServiceDiscovery: Sendable {
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
-    /// Returns a ``ServiceDiscoveryInstancesSequence``, which is an `AsyncSequence` and each of its items is a snapshot listing of service instances.
-    ///
-    /// -  Returns: A ``Subscription`` async sequence.
+    /// -  Returns a ``DiscoverySequence``, which is an `AsyncSequence` and each of its items is a snapshot listing of service instances.
     func subscribe() async throws -> DiscoverySequence
 }

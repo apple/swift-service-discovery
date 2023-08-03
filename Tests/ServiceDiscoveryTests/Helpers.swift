@@ -28,19 +28,3 @@ struct HostPort: Hashable, CustomStringConvertible {
         "\(self.host):\(self.port)"
     }
 }
-
-// FIXME: is there a builtin alternative?
-func XCTAssertThrowsErrorAsync<T>(
-    _ expression: @autoclosure () async throws -> T,
-    _ errorHandler: (Error) -> Void,
-    _ message: String = "This method should fail",
-    file: StaticString = #filePath,
-    line: UInt = #line
-) async {
-    do {
-        _ = try await expression()
-        XCTFail(message, file: file, line: line)
-    } catch {
-        errorHandler(error)
-    }
-}

@@ -42,13 +42,13 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
 
         do {
-            let result = await serviceDiscovery.lookup()
+            let result = try await serviceDiscovery.lookup()
             XCTAssertEqual(result, Self.mockInstances1, "Expected \(Self.mockInstances1)")
         }
 
         do {
             await serviceDiscovery.register(instances: Self.mockInstances2)
-            let result = await serviceDiscovery.lookup()
+            let result = try await serviceDiscovery.lookup()
             XCTAssertEqual(result, Self.mockInstances2, "Expected \(Self.mockInstances2)")
         }
     }
@@ -71,9 +71,9 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let task = Task {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = await serviceDiscovery.subscribe().makeAsyncIterator()
+            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
             while let instances = try await iterator.next() {
-            //for try await instances in try await serviceDiscovery.subscribe() {
+                // for try await instances in try await serviceDiscovery.subscribe() {
                 switch counter.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
                     XCTAssertEqual(instances.count, 1)
@@ -134,9 +134,9 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let task1 = Task {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = await serviceDiscovery.subscribe().makeAsyncIterator()
+            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
             while let instances = try await iterator.next() {
-            //for try await instances in try await serviceDiscovery.subscribe() {
+                // for try await instances in try await serviceDiscovery.subscribe() {
                 switch counter1.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
                     XCTAssertEqual(instances.count, 1)
@@ -156,9 +156,9 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let task2 = Task {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = await serviceDiscovery.subscribe().makeAsyncIterator()
+            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
             while let instances = try await iterator.next() {
-            //for try await instances in try await serviceDiscovery.subscribe() {
+                // for try await instances in try await serviceDiscovery.subscribe() {
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
                 switch counter2.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
@@ -210,10 +210,10 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let task3 = Task {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = await serviceDiscovery.subscribe().makeAsyncIterator()
+            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
             while let instances = try await iterator.next() {
-                XCTAssertEqual(instances.count,  Self.mockInstances1.count)
-                XCTAssertEqual(instances,  Self.mockInstances1)
+                XCTAssertEqual(instances.count, Self.mockInstances1.count)
+                XCTAssertEqual(instances, Self.mockInstances1)
                 if counter1.load(ordering: .sequentiallyConsistent) == 1 {
                     #if os(macOS)
                     expectation3.fulfill()

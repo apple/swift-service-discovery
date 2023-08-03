@@ -25,11 +25,11 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
         self.subscriptions = [:]
     }
 
-    public func lookup() -> [Instance] {
+    public func lookup() async throws -> [Instance] {
         self.instances
     }
 
-    public func subscribe() -> DiscoverySequence {
+    public func subscribe() async throws -> DiscoverySequence {
         defer { self.nextSubscriptionID += 1 }
         let subscriptionID = self.nextSubscriptionID
 
@@ -42,7 +42,7 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
 
         self.subscriptions[subscriptionID] = continuation
 
-        let instances = self.lookup()
+        let instances = try await self.lookup()
         continuation.yield(instances)
 
         return DiscoverySequence(stream)
@@ -109,15 +109,15 @@ public extension InMemoryServiceDiscovery {
 
 #if swift(<5.9)
 // Async stream API backfil
-extension AsyncThrowingStream {
-    public static func makeStream(
+public extension AsyncThrowingStream {
+    static func makeStream(
         of elementType: Element.Type = Element.self,
         throwing failureType: Failure.Type = Failure.self,
         bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
     ) -> (stream: AsyncThrowingStream<Element, Failure>, continuation: AsyncThrowingStream<Element, Failure>.Continuation) where Failure == Error {
-      var continuation: AsyncThrowingStream<Element, Failure>.Continuation!
-      let stream = AsyncThrowingStream<Element, Failure>(bufferingPolicy: limit) { continuation = $0 }
-      return (stream: stream, continuation: continuation!)
+        var continuation: AsyncThrowingStream<Element, Failure>.Continuation!
+        let stream = AsyncThrowingStream<Element, Failure>(bufferingPolicy: limit) { continuation = $0 }
+        return (stream: stream, continuation: continuation!)
     }
 }
 #endif
