@@ -13,15 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
-    private let configuration: Configuration
-
     private var instances: [Instance]
     private var nextSubscriptionID = 0
     private var subscriptions: [Int: AsyncThrowingStream<[Instance], Error>.Continuation]
 
-    public init(configuration: Configuration = .default) {
-        self.configuration = configuration
-        self.instances = configuration.instances
+    public init(instances: [Instance] = []) {
+        self.instances = instances
         self.subscriptions = [:]
     }
 
@@ -29,7 +26,7 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
         self.instances
     }
 
-    public func subscribe() async throws -> DiscoverySequence {
+    public func subscribe() async throws -> _DiscoverySequence {
         defer { self.nextSubscriptionID += 1 }
         let subscriptionID = self.nextSubscriptionID
 
@@ -61,7 +58,8 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
         self.subscriptions.removeValue(forKey: subscriptionID)
     }
 
-    public struct DiscoverySequence: AsyncSequence {
+    /// Internal use only
+    public struct _DiscoverySequence: AsyncSequence {
         public typealias Element = [Instance]
 
         private var underlying: AsyncThrowingStream<[Instance], Error>
@@ -84,25 +82,6 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery {
             public mutating func next() async throws -> [Instance]? {
                 try await self.underlying.next()
             }
-        }
-    }
-}
-
-public extension InMemoryServiceDiscovery {
-    struct Configuration {
-        public let instances: [Instance]
-
-        /// Default configuration
-        public static var `default`: Configuration {
-            .init(
-                instances: []
-            )
-        }
-
-        public init(
-            instances: [Instance]
-        ) {
-            self.instances = instances
         }
     }
 }

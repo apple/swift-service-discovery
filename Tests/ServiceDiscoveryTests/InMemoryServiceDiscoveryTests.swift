@@ -35,11 +35,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
     ]
 
     func testLookup() async throws {
-        let configuration = InMemoryServiceDiscovery.Configuration(
-            instances: Self.mockInstances1
-        )
-
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let serviceDiscovery = InMemoryServiceDiscovery(instances: Self.mockInstances1)
 
         do {
             let result = try await serviceDiscovery.lookup()
@@ -54,10 +50,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
     }
 
     func testSubscribe() async throws {
-        let configuration = InMemoryServiceDiscovery.Configuration(
-            instances: Self.mockInstances1
-        )
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let serviceDiscovery = InMemoryServiceDiscovery(instances: Self.mockInstances1)
 
         let counter = ManagedAtomic<Int>(0)
 
@@ -112,10 +105,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
     }
 
     func testCancellation() async throws {
-        let configuration = InMemoryServiceDiscovery.Configuration(
-            instances: Self.mockInstances1
-        )
-        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+        let serviceDiscovery = InMemoryServiceDiscovery(instances: Self.mockInstances1)
 
         #if os(macOS)
         let expectation1 = XCTestExpectation(description: #function)
