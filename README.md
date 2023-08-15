@@ -80,7 +80,7 @@ Async APIs are available for Swift 5.5 and above.
 To fetch the current list of instances:
                                             
 ```swift
-let instances: [Instace] = try await serviceDiscovery.lookup(service)
+let instances: [Instance] = try await serviceDiscovery.lookup(service)
 ```
    
 To fetch the current list of instances **AND** subscribe to future changes:
