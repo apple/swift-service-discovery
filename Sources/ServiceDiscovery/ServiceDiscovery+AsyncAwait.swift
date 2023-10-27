@@ -48,35 +48,33 @@ public extension ServiceDiscovery {
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func subscribe(to service: Service) -> ServiceSnapshots<Instance> {
         ServiceSnapshots(AsyncThrowingStream<[Instance], Error> { continuation in
-            Task {
-                let cancellationToken = self.subscribe(
-                    to: service,
-                    onNext: { result in
-                        switch result {
-                        case .success(let instances):
-                            continuation.yield(instances)
-                        case .failure(let error):
-                            // LookupError is recoverable (e.g., service is added *after* subscription begins), so don't give up yet
-                            guard error is LookupError else {
-                                return continuation.finish(throwing: error)
-                            }
-                        }
-                    },
-                    onComplete: { reason in
-                        switch reason {
-                        case .cancellationRequested:
-                            continuation.finish()
-                        case .serviceDiscoveryUnavailable:
-                            continuation.finish(throwing: ServiceDiscoveryError.unavailable)
-                        default:
-                            continuation.finish(throwing: ServiceDiscoveryError.other(reason.description))
+            let cancellationToken = self.subscribe(
+                to: service,
+                onNext: { result in
+                    switch result {
+                    case .success(let instances):
+                        continuation.yield(instances)
+                    case .failure(let error):
+                        // LookupError is recoverable (e.g., service is added *after* subscription begins), so don't give up yet
+                        guard error is LookupError else {
+                            return continuation.finish(throwing: error)
                         }
                     }
-                )
-
-                continuation.onTermination = { @Sendable (_) -> Void in
-                    cancellationToken.cancel()
+                },
+                onComplete: { reason in
+                    switch reason {
+                    case .cancellationRequested:
+                        continuation.finish()
+                    case .serviceDiscoveryUnavailable:
+                        continuation.finish(throwing: ServiceDiscoveryError.unavailable)
+                    default:
+                        continuation.finish(throwing: ServiceDiscoveryError.other(reason.description))
+                    }
                 }
+            )
+
+            continuation.onTermination = { @Sendable (_) -> Void in
+                cancellationToken.cancel()
             }
         })
     }
@@ -92,7 +90,7 @@ public struct ServiceSnapshots<Instance>: AsyncSequence {
 
     public init<SnapshotSequence: AsyncSequence>(_ snapshots: SnapshotSequence) where SnapshotSequence.Element == Element {
         self.stream = AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     for try await snapshot in snapshots {
                         continuation.yield(snapshot)
@@ -101,6 +99,10 @@ public struct ServiceSnapshots<Instance>: AsyncSequence {
                 } catch {
                     continuation.finish(throwing: error)
                 }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
