@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ServiceDiscovery
-import Dispatch
 import Atomics
+import Dispatch
+import ServiceDiscovery
 import XCTest
 
 final class MockServiceDiscovery: ServiceDiscovery {
@@ -32,7 +32,7 @@ final class MockServiceDiscovery: ServiceDiscovery {
         onNext nextResultHandler: @escaping (Result<[String], Error>) -> Void,
         onComplete completionHandler: @escaping (CompletionReason) -> Void
     ) -> CancellationToken {
-        CancellationToken() { _ in
+        CancellationToken { _ in
             self.cancelCounter.wrappingIncrement(ordering: .relaxed)
         }
     }
