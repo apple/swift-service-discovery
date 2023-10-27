@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=5.5) && canImport(_Concurrency)
 import Atomics
 import Dispatch
 import ServiceDiscovery
@@ -62,3 +63,4 @@ final class AsyncAwaitTests: XCTestCase {
         }
     }
 }
+#endif
