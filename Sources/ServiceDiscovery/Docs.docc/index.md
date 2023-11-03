@@ -39,7 +39,7 @@ As the API has just launched, not many implementations exist yet. If you are int
 To fetch the current list of instances:
 
 ```swift
-let instances: [Instace] = try await serviceDiscovery.lookup()
+let instances: [Instance] = try await serviceDiscovery.lookup()
 ```
    
 To fetch the current list of instances **AND** subscribe to future changes:
@@ -52,7 +52,7 @@ for try await instances in serviceDiscovery.subscribe() {
 
 Underlying the async `subscribe` API is an `AsyncSequence`. To end the subscription, simply break out of the `for`-loop.
 
-Note the AsyncSequence is of a Result type, wrapping either the instances discovered, or a discovery error if such occurred.
+Note the `AsyncSequence` is of a `Result` type, wrapping either the instances discovered, or a discovery error if such occurred.
 A client should decide how to best handle errors in this case, e.g. terminate the subscription or continue and handle the errors.
 
 ## Implementing a service discovery backend
@@ -102,7 +102,7 @@ The backend implementation could impose a deadline on when the operation will co
 func subscribe() async throws -> DiscoverySequence
 ```
 
-`subscribe` returns an AsyncSequence that yields an array of instances. The set of instances is the complete set of known instances at yield time. The backend should yield:
+`subscribe` returns an `AsyncSequence` that yields an array of instances. The set of instances is the complete set of known instances at yield time. The backend should yield:
 
 - When `subscribe` is first invoked, the caller should receive the current list of instances for the given service. This is essentially the `lookup` result.
 - Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must yield when the instances list becomes different from the previous result.

@@ -25,19 +25,22 @@ public protocol ServiceDiscovery: Sendable {
 
     /// Performs async lookup for the given service's instances.
     ///
-    /// -  Returns: A listing of service instances.
+    /// - Returns: A listing of service instances.
     /// - throws when failing to lookup instances
     func lookup() async throws -> [Instance]
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
-    /// -  Returns a ``DiscoverySequence``, which is an `AsyncSequence` and each of its items is a snapshot listing of service instances.
+    /// - Returns a ``DiscoverySequence``, which is an `AsyncSequence` and each of its items is a snapshot listing of service instances.
     /// - throws when failing to establish subscription
     func subscribe() async throws -> Subscription
 }
 
-/// The ServiceDiscoverySubscription returns an AsyncSequence of Result type, with either the instances discovered or an error if a discovery error has occurred
-/// The client should decide how to best handle errors in this case, e.g. terminate the subscription or continue and handle the errors, for example by recording or  propagating them
+/// The ServiceDiscoverySubscription returns an AsyncSequence of Result type, with either the 
+/// instances discovered or an error if a discovery error has occurred.
+/// The client should decide how to best handle errors in this case, e.g. terminate 
+/// the subscription or continue and handle the errors, for example by recording or 
+/// propagating them.
 public protocol ServiceDiscoverySubscription: Sendable {
     /// Service discovery instance type
     associatedtype Instance: Sendable
