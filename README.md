@@ -93,6 +93,9 @@ for try await instances in serviceDiscovery.subscribe(to: service) {
                                             
 Underlying the async `subscribe` API is an `AsyncSequence`. To end the subscription, simply break out of the `for`-loop.
 
+Note the AsyncSequence is of a Result type, wrapping either the instances discovered, or a discovery error if such occurred.
+A client should decide how to best handle errors in this case, e.g. terminate the subscription or continue and handle the errors.
+
 ### Combinators
 
 SwiftServiceDiscovery includes combinators for common requirements such as transforming and filtering instances. For example:

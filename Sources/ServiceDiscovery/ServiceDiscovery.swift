@@ -16,22 +16,33 @@
 
 /// Provides service instances lookup.
 ///
-/// ### Threading
-///
-/// `ServiceDiscovery` implementations **MUST be thread-safe**.
+/// `ServiceDiscovery` implementations.
 public protocol ServiceDiscovery: Sendable {
     /// Service discovery instance type
     associatedtype Instance: Sendable
     /// AsyncSequence of Service discovery instances
-    associatedtype DiscoverySequence: AsyncSequence where DiscoverySequence.Element == [Instance]
+    associatedtype Subscription: ServiceDiscoverySubscription where Subscription.Instance == Instance
 
     /// Performs async lookup for the given service's instances.
     ///
     /// -  Returns: A listing of service instances.
+    /// - throws when failing to lookup instances
     func lookup() async throws -> [Instance]
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
     /// -  Returns a ``DiscoverySequence``, which is an `AsyncSequence` and each of its items is a snapshot listing of service instances.
-    func subscribe() async throws -> DiscoverySequence
+    /// - throws when failing to establish subscription
+    func subscribe() async throws -> Subscription
+}
+
+/// The ServiceDiscoverySubscription returns an AsyncSequence of Result type, with either the instances discovered or an error if a discovery error has occurred
+/// The client should decide how to best handle errors in this case, e.g. terminate the subscription or continue and handle the errors, for example by recording or  propagating them
+public protocol ServiceDiscoverySubscription: Sendable {
+    /// Service discovery instance type
+    associatedtype Instance: Sendable
+    /// Service discovery AsyncSequence
+    associatedtype DiscoverySequence: Sendable, AsyncSequence where DiscoverySequence.Element == Result<[Instance], Error>
+
+    func next() async -> DiscoverySequence
 }

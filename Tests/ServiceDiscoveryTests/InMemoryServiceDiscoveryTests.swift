@@ -63,9 +63,12 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         await serviceDiscovery.register(instances: [Self.mockInstances2[0]])
 
         let task = Task {
+            let subscription = try await serviceDiscovery.subscribe()
+            // for await instances in await subscription.next() {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
-            while let instances = try await iterator.next() {
+            var iterator = await subscription.next().makeAsyncIterator()
+            while let result = await iterator.next() {
+                let instances = try result.get()
                 // for try await instances in try await serviceDiscovery.subscribe() {
                 switch counter.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
@@ -104,6 +107,62 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         XCTAssertEqual(counter.load(ordering: .sequentiallyConsistent), 3, "Expected to be called 3 times")
     }
 
+    func testSubscribeWithErrors() async throws {
+        let serviceDiscovery = ThrowingServiceDiscovery()
+
+        let counter = ManagedAtomic<Int>(0)
+
+        #if os(macOS)
+        let expectation = XCTestExpectation(description: #function)
+        #else
+        let semaphore = DispatchSemaphore(value: 0)
+        #endif
+
+        let task = Task {
+            let subscription = try await serviceDiscovery.subscribe()
+            // for await instances in await subscription.next() {
+            // FIXME: using iterator instead of for..in due to 5.7 compiler bug
+            var iterator = await subscription.next().makeAsyncIterator()
+            while let result = await iterator.next() {
+                switch counter.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
+                case 1:
+                    XCTAssertNoThrow(try result.get())
+                    await serviceDiscovery.yield(error: DiscoveryError(description: "error 1"))
+                case 2:
+                    XCTAssertThrowsError(try result.get()) { error in
+                        XCTAssertEqual(error as? DiscoveryError, DiscoveryError(description: "error 1"))
+                    }
+                    await serviceDiscovery.yield(instances: [(), (), ()])
+                case 3:
+                    XCTAssertNoThrow(try result.get())
+                    XCTAssertEqual(try result.get().count, 3)
+                    await serviceDiscovery.yield(error: DiscoveryError(description: "error 2"))
+                case 4:
+                    XCTAssertThrowsError(try result.get()) { error in
+                        XCTAssertEqual(error as? DiscoveryError, DiscoveryError(description: "error 2"))
+                    }
+                    #if os(macOS)
+                    expectation.fulfill()
+                    #else
+                    semaphore.signal()
+                    #endif
+                default:
+                    XCTFail("Expected to be called 3 times")
+                }
+            }
+        }
+
+        #if os(macOS)
+        await fulfillment(of: [expectation], timeout: 5.0)
+        #else
+        XCTAssertEqual(.success, semaphore.wait(timeout: .now() + 1.0))
+        #endif
+
+        XCTAssertEqual(counter.load(ordering: .sequentiallyConsistent), 4, "Expected to be called 5 times")
+
+        task.cancel()
+    }
+
     func testCancellation() async throws {
         let serviceDiscovery = InMemoryServiceDiscovery(instances: Self.mockInstances1)
 
@@ -123,10 +182,12 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let counter2 = ManagedAtomic<Int>(0)
 
         let task1 = Task {
+            let subscription = try await serviceDiscovery.subscribe()
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
-            while let instances = try await iterator.next() {
-                // for try await instances in try await serviceDiscovery.subscribe() {
+            // for await instances in await subscription.next() {
+            var iterator = await subscription.next().makeAsyncIterator()
+            while let result = await iterator.next() {
+                let instances = try result.get()
                 switch counter1.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
                     XCTAssertEqual(instances.count, 1)
@@ -145,10 +206,12 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         }
 
         let task2 = Task {
+            let subscription = try await serviceDiscovery.subscribe()
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
-            while let instances = try await iterator.next() {
-                // for try await instances in try await serviceDiscovery.subscribe() {
+            // for await instances in await subscription.next() {
+            var iterator = await subscription.next().makeAsyncIterator()
+            while let result = await iterator.next() {
+                let instances = try result.get()
                 // FIXME: casting to HostPort due to a 5.9 compiler bug
                 switch counter2.wrappingIncrementThenLoad(ordering: .sequentiallyConsistent) {
                 case 1:
@@ -198,10 +261,15 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         // one more time
 
+        await serviceDiscovery.register(instances: Self.mockInstances1)
+
         let task3 = Task {
+            let subscription = try await serviceDiscovery.subscribe()
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            var iterator = try await serviceDiscovery.subscribe().makeAsyncIterator()
-            while let instances = try await iterator.next() {
+            // for await instances in await subscription.next() {
+            var iterator = await subscription.next().makeAsyncIterator()
+            while let result = await iterator.next() {
+                let instances = try result.get()
                 XCTAssertEqual(instances.count, Self.mockInstances1.count)
                 XCTAssertEqual(instances, Self.mockInstances1)
                 if counter1.load(ordering: .sequentiallyConsistent) == 1 {
@@ -214,7 +282,6 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
             }
         }
 
-        await serviceDiscovery.register(instances: Self.mockInstances1)
         #if os(macOS)
         await fulfillment(of: [expectation3], timeout: 1.0)
         #else
@@ -222,4 +289,39 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         #endif
         task3.cancel()
     }
+}
+
+private actor ThrowingServiceDiscovery: ServiceDiscovery, ServiceDiscoverySubscription {
+    var continuation: AsyncStream<Result<[Void], Error>>.Continuation?
+
+    func lookup() async throws -> [Void] {
+        []
+    }
+
+    func subscribe() async throws -> ThrowingServiceDiscovery {
+        self
+    }
+
+    func next() async -> InMemoryServiceDiscovery<Void>.DiscoverySequence {
+        let (stream, continuation) = AsyncStream.makeStream(of: Result<[Void], Error>.self)
+        self.continuation = continuation
+        continuation.yield(.success([])) // get us going
+        return InMemoryServiceDiscovery.DiscoverySequence(stream)
+    }
+
+    func yield(error: Error) {
+        if let continuation = self.continuation {
+            continuation.yield(.failure(error))
+        }
+    }
+
+    func yield(instances: [Void]) {
+        if let continuation = self.continuation {
+            continuation.yield(.success(instances))
+        }
+    }
+}
+
+private struct DiscoveryError: Error, Equatable {
+    let description: String
 }

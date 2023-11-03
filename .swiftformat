@@ -1,4 +1,4 @@
---swiftversion 5.2
+--swiftversion 5.7
 
 # file options
 
@@ -13,8 +13,10 @@
 --stripunusedargs closure-only
 --wraparguments before-first
 
+# Configure the placement of an extension's access control keyword.
+--extensionacl on-declarations
+
 # rules
 
 --disable blankLinesAroundMark
 --disable wrapMultilineStatementBraces
-

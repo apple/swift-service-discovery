@@ -30,7 +30,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "ServiceDiscovery", dependencies: []),
-
         .testTarget(name: "ServiceDiscoveryTests", dependencies: [
             "ServiceDiscovery",
             .product(name: "Atomics", package: "swift-atomics"),
