@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2021 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2023 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,209 +12,103 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Atomics
-import Dispatch
-import Foundation // for NSLock
+public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery, ServiceDiscoverySubscription {
+    private var instances: [Instance]
+    private var nextSubscriptionID = 0
+    private var subscriptions: [Int: AsyncStream<Result<[Instance], Error>>.Continuation]
 
-/// Provides lookup for service instances that are stored in-memory.
-public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
-    private let configuration: Configuration
-
-    private let lock = NSLock()
-    private var _isShutdown: Bool = false
-    private var _serviceInstances: [Service: [Instance]]
-    private var _serviceSubscriptions: [Service: [Subscription]] = [:]
-
-    private let queue: DispatchQueue
-
-    public var defaultLookupTimeout: DispatchTimeInterval {
-        self.configuration.defaultLookupTimeout
+    public init(instances: [Instance] = []) {
+        self.instances = instances
+        self.subscriptions = [:]
     }
 
-    public var isShutdown: Bool {
-        self.lock.withLock {
-            self._isShutdown
-        }
+    /// ServiceDiscovery implementation
+    /// Performs async lookup for the given service's instances.
+    public func lookup() async throws -> [Instance] {
+        self.instances
     }
 
-    public init(configuration: Configuration, queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)) {
-        self.configuration = configuration
-        self._serviceInstances = configuration.serviceInstances
-        self.queue = queue
+    /// ServiceDiscovery implementation
+    /// Subscribes to receive a service's instances whenever they change.
+    public func subscribe() async throws -> InMemoryServiceDiscovery {
+        self
     }
 
-    public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
-        let isDone = ManagedAtomic<Bool>(false)
+    /// ServiceDiscoverySubscription implementation, provides an AsyncSequence to consume
+    public func next() async -> _DiscoverySequence {
+        defer { self.nextSubscriptionID += 1 }
+        let subscriptionID = self.nextSubscriptionID
 
-        let lookupWorkItem = DispatchWorkItem {
-            let result = self.lock.withLock { () -> Result<[Instance], Error> in
-                if self._isShutdown {
-                    return .failure(ServiceDiscoveryError.unavailable)
-                }
-
-                if let instances = self._lookupNow(service) {
-                    return .success(instances)
-                } else {
-                    return .failure(LookupError.unknownService)
-                }
-            }
-
-            if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
-                callback(result.mapError { $0 as Error })
+        let (stream, continuation) = AsyncStream.makeStream(of: Result<[Instance], Error>.self)
+        continuation.onTermination = { _ in
+            Task {
+                await self.unsubscribe(subscriptionID: subscriptionID)
             }
         }
 
-        self.queue.async(execute: lookupWorkItem)
+        self.subscriptions[subscriptionID] = continuation
 
-        // Timeout handler
-        self.queue.asyncAfter(deadline: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) {
-            lookupWorkItem.cancel()
+        do {
+            let instances = try await self.lookup()
+            continuation.yield(.success(instances))
+        } catch {
+            continuation.yield(.failure(error))
+        }
 
-            if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
-                callback(.failure(LookupError.timedOut))
-            }
+        return _DiscoverySequence(stream)
+    }
+
+    /// Registers  new `instances`.
+    public func register(instances: [Instance]) {
+        self.instances = instances
+
+        for continuations in self.subscriptions.values {
+            continuations.yield(.success(instances))
         }
     }
 
-    private enum SubscribeAction {
-        case cancelSinceShutdown
-        case yieldFirstElement([Instance]?)
+    private func unsubscribe(subscriptionID: Int) {
+        self.subscriptions.removeValue(forKey: subscriptionID)
     }
 
-    @discardableResult
-    public func subscribe(
-        to service: Service,
-        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
-    ) -> CancellationToken {
-        let cancellationToken = CancellationToken(completionHandler: completionHandler)
-        let subscription = Subscription(
-            nextResultHandler: nextResultHandler,
-            completionHandler: completionHandler,
-            cancellationToken: cancellationToken
-        )
+    /// Internal use only
+    public struct _DiscoverySequence: AsyncSequence {
+        public typealias Element = Result<[Instance], Error>
 
-        let action = self.lock.withLock { () -> SubscribeAction in
-            guard !self._isShutdown else {
-                return .cancelSinceShutdown
-            }
+        private var underlying: AsyncStream<Result<[Instance], Error>>
 
-            // first add the subscription
-            var subscriptions = self._serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
-            subscriptions.append(subscription)
-            self._serviceSubscriptions[service] = subscriptions
-
-            return .yieldFirstElement(self._lookupNow(service))
+        init(_ underlying: AsyncStream<Result<[Instance], Error>>) {
+            self.underlying = underlying
         }
 
-        switch action {
-        case .cancelSinceShutdown:
-            completionHandler(.serviceDiscoveryUnavailable)
-            return CancellationToken(isCancelled: true)
-        case .yieldFirstElement(.some(let instances)):
-            self.queue.async { nextResultHandler(.success(instances)) }
-            return cancellationToken
-        case .yieldFirstElement(.none):
-            self.queue.async { nextResultHandler(.failure(LookupError.unknownService)) }
-            return cancellationToken
-        }
-    }
-
-    /// Registers a service and its `instances`.
-    public func register(_ service: Service, instances newInstances: [Instance]) {
-        let maybeSubscriptions = self.lock.withLock { () -> [Subscription]? in
-            guard !self._isShutdown else { return nil }
-
-            let previousInstances = self._serviceInstances[service]
-            guard previousInstances != newInstances else { return nil }
-
-            self._serviceInstances[service] = newInstances
-
-            let subscriptions = self._serviceSubscriptions[service]
-            return subscriptions
+        public func makeAsyncIterator() -> AsyncIterator {
+            AsyncIterator(self.underlying.makeAsyncIterator())
         }
 
-        guard let subscriptions = maybeSubscriptions else { return }
-        for sub in subscriptions.lazy.filter({ !$0.cancellationToken.isCancelled }) {
-            sub.nextResultHandler(.success(newInstances))
-        }
-    }
+        public struct AsyncIterator: AsyncIteratorProtocol {
+            private var underlying: AsyncStream<Result<[Instance], Error>>.Iterator
 
-    public func shutdown() {
-        let maybeServiceSubscriptions = self.lock.withLock { () -> Dictionary<Service, [Subscription]>.Values? in
-            if self._isShutdown {
-                return nil
+            init(_ underlying: AsyncStream<Result<[Instance], Error>>.Iterator) {
+                self.underlying = underlying
             }
 
-            self._isShutdown = true
-            let subscriptions = self._serviceSubscriptions
-            self._serviceSubscriptions = [:]
-            self._serviceInstances = [:]
-            return subscriptions.values
-        }
-
-        guard let serviceSubscriptions = maybeServiceSubscriptions else {
-            return
-        }
-
-        for subscriptions in serviceSubscriptions {
-            for sub in subscriptions.lazy.filter({ !$0.cancellationToken.isCancelled }) {
-                sub.completionHandler(.serviceDiscoveryUnavailable)
+            public mutating func next() async -> Result<[Instance], Error>? {
+                await self.underlying.next()
             }
-        }
-    }
-
-    private func _lookupNow(_ service: Service) -> [Instance]? {
-        if let instances = self._serviceInstances[service] {
-            return instances
-        } else {
-            return nil
-        }
-    }
-
-    private struct Subscription {
-        let nextResultHandler: (Result<[Instance], Error>) -> Void
-        let completionHandler: (CompletionReason) -> Void
-        let cancellationToken: CancellationToken
-    }
-}
-
-public extension InMemoryServiceDiscovery {
-    struct Configuration {
-        /// Default configuration
-        public static var `default`: Configuration {
-            .init()
-        }
-
-        /// Lookup timeout in case `deadline` is not specified
-        public var defaultLookupTimeout: DispatchTimeInterval = .milliseconds(100)
-
-        internal var serviceInstances: [Service: [Instance]]
-
-        public init() {
-            self.init(serviceInstances: [:])
-        }
-
-        /// Initializes `InMemoryServiceDiscovery` with the given service to instances mappings.
-        public init(serviceInstances: [Service: [Instance]]) {
-            self.serviceInstances = serviceInstances
-        }
-
-        /// Registers `service` and its `instances`.
-        public mutating func register(service: Service, instances: [Instance]) {
-            self.serviceInstances[service] = instances
         }
     }
 }
 
-// MARK: - NSLock extensions
-
-private extension NSLock {
-    func withLock<Result>(_ body: () throws -> Result) rethrows -> Result {
-        self.lock()
-        defer {
-            self.unlock()
-        }
-        return try body()
+#if swift(<5.9)
+// Async stream API backfill
+extension AsyncStream {
+    public static func makeStream(
+        of elementType: Element.Type = Element.self,
+        bufferingPolicy limit: Continuation.BufferingPolicy = .unbounded
+    ) -> (stream: AsyncStream<Element>, continuation: AsyncStream<Element>.Continuation) {
+        var continuation: AsyncStream<Element>.Continuation!
+        let stream = AsyncStream<Element>(bufferingPolicy: limit) { continuation = $0 }
+        return (stream: stream, continuation: continuation!)
     }
 }
+#endif
