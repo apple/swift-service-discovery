@@ -85,24 +85,25 @@ To become a compatible service discovery backend that all ServiceDiscovery consu
 ```swift
 /// Performs async lookup for the given service's instances.
 ///
-/// -  Returns: A listing of service instances.
+/// - Returns: A listing of service discovery instances.
+/// - throws when failing to lookup instances
 func lookup() async throws -> [Instance]
 ```
 
 `lookup` fetches the current list of instances asynchronously.
 
-The backend implementation could impose a deadline on when the operation will complete.
-
 #### subscribe
 
 ```swift
-/// Subscribes to receive a service's instances whenever they change.
+/// Subscribes to receive service discovery change notification whenever service discovery instances change.
 ///
-/// -  Returns a ``DiscoverySequence``, which is an `AsyncSequence` and each of its items is a snapshot listing of service instances.
+/// - Returns a ``ServiceDiscoverySubscription`` which produces an `AsyncSequence` of changes in  the service discovery instances.
+/// - throws when failing to establish subscription
 func subscribe() async throws -> DiscoverySequence
 ```
 
-`subscribe` returns an `AsyncSequence` that yields an array of instances. The set of instances is the complete set of known instances at yield time. The backend should yield:
+`subscribe` returns an ``AsyncSequence`` that yields a Result type containing array of instances or error information. 
+The set of instances is the complete set of known instances at yield time. The backend should yield:
 
 - When `subscribe` is first invoked, the caller should receive the current list of instances for the given service. This is essentially the `lookup` result.
 - Whenever the given service's list of instances changes. The backend implementation has full control over how and when its service records get updated, but it must yield when the instances list becomes different from the previous result.

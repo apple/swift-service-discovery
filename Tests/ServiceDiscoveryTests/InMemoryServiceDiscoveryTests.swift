@@ -64,7 +64,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let task = Task {
             let subscription = try await serviceDiscovery.subscribe()
-            // for await instances in await subscription.next() {
+            // for await result in await subscription.next() {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
             var iterator = await subscription.next().makeAsyncIterator()
             while let result = await iterator.next() {
@@ -120,7 +120,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
 
         let task = Task {
             let subscription = try await serviceDiscovery.subscribe()
-            // for await instances in await subscription.next() {
+            // for await result in await subscription.next() {
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
             var iterator = await subscription.next().makeAsyncIterator()
             while let result = await iterator.next() {
@@ -184,7 +184,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let task1 = Task {
             let subscription = try await serviceDiscovery.subscribe()
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            // for await instances in await subscription.next() {
+            // for await result in await subscription.next() {
             var iterator = await subscription.next().makeAsyncIterator()
             while let result = await iterator.next() {
                 let instances = try result.get()
@@ -208,7 +208,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let task2 = Task {
             let subscription = try await serviceDiscovery.subscribe()
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            // for await instances in await subscription.next() {
+            // for await result in await subscription.next() {
             var iterator = await subscription.next().makeAsyncIterator()
             while let result = await iterator.next() {
                 let instances = try result.get()
@@ -266,7 +266,7 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         let task3 = Task {
             let subscription = try await serviceDiscovery.subscribe()
             // FIXME: using iterator instead of for..in due to 5.7 compiler bug
-            // for await instances in await subscription.next() {
+            // for await result in await subscription.next() {
             var iterator = await subscription.next().makeAsyncIterator()
             while let result = await iterator.next() {
                 let instances = try result.get()

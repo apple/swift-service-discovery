@@ -22,14 +22,19 @@ public actor InMemoryServiceDiscovery<Instance>: ServiceDiscovery, ServiceDiscov
         self.subscriptions = [:]
     }
 
+    /// ServiceDiscovery implementation
+    /// Performs async lookup for the given service's instances.
     public func lookup() async throws -> [Instance] {
         self.instances
     }
 
+    /// ServiceDiscovery implementation
+    /// Subscribes to receive a service's instances whenever they change.
     public func subscribe() async throws -> InMemoryServiceDiscovery {
         self
     }
 
+    /// ServiceDiscoverySubscription implementation, provides an AsyncSequence to consume
     public func next() async -> _DiscoverySequence {
         defer { self.nextSubscriptionID += 1 }
         let subscriptionID = self.nextSubscriptionID
