@@ -311,7 +311,6 @@ class MapInstanceServiceDiscoveryTests: XCTestCase {
         let baseServiceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let serviceDiscovery = baseServiceDiscovery.mapInstance { port in HostPort(host: "localhost", port: port) }
 
-        let semaphore = DispatchSemaphore(value: 0)
         let counter = ManagedAtomic<Int>(0)
 
         Task {
