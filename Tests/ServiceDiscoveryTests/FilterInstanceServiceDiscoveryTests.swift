@@ -324,7 +324,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
             baseServiceDiscovery.register(Self.barService, instances: Self.barBaseInstances)
         }
 
-        let task = Task { () in
+        let task = Task<Void, Error> { () in
             do {
                 for try await instances in serviceDiscovery.subscribe(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {

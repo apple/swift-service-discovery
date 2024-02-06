@@ -352,7 +352,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
             baseServiceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task { () in
+        let task = Task<Void, Error> { () in
             do {
                 for try await instances in serviceDiscovery.subscribe(to: Self.computedBarService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
@@ -388,7 +388,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
         let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (_: Int) -> String in throw TestError.error }
 
-        let task = Task { () in
+        let task = Task<Void, Error> { () in
             do {
                 for try await instances in serviceDiscovery.subscribe(to: Self.computedFooService) {
                     XCTFail("Expected error, got \(instances)")

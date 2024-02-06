@@ -209,7 +209,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             serviceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task { () in
+        let task = Task<Void, Error> { () in
             do {
                 for try await instances in boxedServiceDiscovery.subscribe(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
@@ -268,7 +268,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             serviceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task { () in
+        let task = Task<Void, Error> { () in
             do {
                 for try await instances: [Instance] in anyServiceDiscovery.subscribeAndUnwrap(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {

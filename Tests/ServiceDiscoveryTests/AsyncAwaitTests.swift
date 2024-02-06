@@ -62,7 +62,7 @@ final class AsyncAwaitTests: XCTestCase {
 
             // Wait for task group to be cancelled and cancelCounter is incremented
             repeat {
-                try await Task.sleep(for: .milliseconds(10))
+                try await Task.sleep(nanoseconds: 10_000_000)
             } while !taskGroup.isCancelled
 
             XCTAssertEqual(discoveryService.cancelCounter.load(ordering: .relaxed), 1)
