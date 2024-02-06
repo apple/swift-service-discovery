@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2019-2023 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2019-2024 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -303,65 +303,46 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
 
     // MARK: - async/await API tests
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func test_async_lookup() throws {
-        #if !(compiler(>=5.5) && canImport(_Concurrency))
-        try XCTSkipIf(true)
-        #else
+    func test_async_lookup() async throws {
         var configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         configuration.register(service: Self.barService, instances: Self.barInstances)
 
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (service: Int) in Self.services[service] }
 
-        runAsyncAndWaitFor {
-            let _fooInstances = try await serviceDiscovery.lookup(Self.computedFooService)
-            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.computedFooService)] to have 1 instance, got \(_fooInstances.count)")
-            XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.computedFooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
+        let _fooInstances = try await serviceDiscovery.lookup(Self.computedFooService)
+        XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.computedFooService)] to have 1 instance, got \(_fooInstances.count)")
+        XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.computedFooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
 
-            let _barInstances = try await serviceDiscovery.lookup(Self.computedBarService)
-            XCTAssertEqual(_barInstances.count, 2, "Expected service[\(Self.computedBarService)] to have 2 instances, got \(_barInstances.count)")
-            XCTAssertEqual(_barInstances, Self.barInstances, "Expected service[\(Self.computedBarService)] to have instances \(Self.barInstances), got \(_barInstances)")
-        }
-        #endif
+        let _barInstances = try await serviceDiscovery.lookup(Self.computedBarService)
+        XCTAssertEqual(_barInstances.count, 2, "Expected service[\(Self.computedBarService)] to have 2 instances, got \(_barInstances.count)")
+        XCTAssertEqual(_barInstances, Self.barInstances, "Expected service[\(Self.computedBarService)] to have instances \(Self.barInstances), got \(_barInstances)")
     }
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func test_async_lookup_errorIfServiceUnknown() throws {
-        #if !(compiler(>=5.5) && canImport(_Concurrency))
-        try XCTSkipIf(true)
-        #else
+    func test_async_lookup_errorIfServiceUnknown() async throws {
         let unknownService = "unknown-service"
         let unknownComputedService = 3
 
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: ["foo-service": []])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService(serviceType: Int.self) { _ in unknownService }
 
-        runAsyncAndWaitFor {
-            do {
-                _ = try await serviceDiscovery.lookup(unknownComputedService)
-                return XCTFail("Lookup instances for service[\(unknownComputedService)] should return an error")
-            } catch {
-                guard let lookupError = error as? LookupError, lookupError == .unknownService else {
-                    return XCTFail("Expected LookupError.unknownService, got \(error)")
-                }
+        do {
+            _ = try await serviceDiscovery.lookup(unknownComputedService)
+            return XCTFail("Lookup instances for service[\(unknownComputedService)] should return an error")
+        } catch {
+            guard let lookupError = error as? LookupError, lookupError == .unknownService else {
+                return XCTFail("Expected LookupError.unknownService, got \(error)")
             }
         }
-        #endif
     }
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func test_async_subscribe() throws {
-        #if !(compiler(>=5.5) && canImport(_Concurrency))
-        try XCTSkipIf(true)
-        #else
+    func test_async_subscribe() async throws {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let baseServiceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let serviceDiscovery = baseServiceDiscovery.mapService(serviceType: Int.self) { service in Self.services[service] }
 
-        let semaphore = DispatchSemaphore(value: 0)
         let counter = ManagedAtomic<Int>(0)
 
-        Task.detached {
+        Task {
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
@@ -371,7 +352,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
             baseServiceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task.detached { () -> Void in
+        let task = Task { () in
             do {
                 for try await instances in serviceDiscovery.subscribe(to: Self.computedBarService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
@@ -391,32 +372,23 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
                     guard let serviceDiscoveryError = error as? ServiceDiscoveryError, serviceDiscoveryError == .unavailable else {
                         return XCTFail("Expected ServiceDiscoveryError.unavailable, got \(error)")
                     }
-                    // Test is complete at this point
-                    semaphore.signal()
+                // Test is complete at this point
                 default:
                     XCTFail("Unexpected error \(error)")
                 }
             }
         }
 
-        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
-        task.cancel()
+        _ = await task.result
 
         XCTAssertEqual(counter.load(ordering: .relaxed), 2, "Expected to receive instances 2 times, got \(counter.load(ordering: .relaxed)) times")
-        #endif
     }
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func testThrownErrorsPropagateIntoAsyncSubscriptions() throws {
-        #if !(compiler(>=5.5) && canImport(_Concurrency))
-        try XCTSkipIf(true)
-        #else
+    func testThrownErrorsPropagateIntoAsyncSubscriptions() async throws {
         let configuration = InMemoryServiceDiscovery.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration).mapService { (_: Int) -> String in throw TestError.error }
 
-        let semaphore = DispatchSemaphore(value: 0)
-
-        let task = Task.detached { () -> Void in
+        let task = Task { () in
             do {
                 for try await instances in serviceDiscovery.subscribe(to: Self.computedFooService) {
                     XCTFail("Expected error, got \(instances)")
@@ -428,8 +400,6 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
             }
         }
 
-        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
-        task.cancel()
-        #endif
+        _ = await task.result
     }
 }

@@ -73,7 +73,7 @@ public extension ServiceDiscovery {
                 }
             )
 
-            continuation.onTermination = { @Sendable (_) -> Void in
+            continuation.onTermination = { @Sendable (_) in
                 cancellationToken.cancel()
             }
         })

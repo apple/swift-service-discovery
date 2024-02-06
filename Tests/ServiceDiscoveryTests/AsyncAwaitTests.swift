@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2023 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2023-2024 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -47,7 +47,7 @@ final class AsyncAwaitTests: XCTestCase {
     func testCancellationTokenIsInvoked() async throws {
         let discoveryService = MockServiceDiscovery()
 
-        await withThrowingTaskGroup(of: Void.self) { taskGroup in
+        try await withThrowingTaskGroup(of: Void.self) { taskGroup in
             let snapshots = discoveryService.subscribe(to: "foo")
 
             taskGroup.addTask {
@@ -59,6 +59,12 @@ final class AsyncAwaitTests: XCTestCase {
             XCTAssertEqual(discoveryService.cancelCounter.load(ordering: .relaxed), 0)
             taskGroup.cancelAll()
             _ = await taskGroup.nextResult()
+
+            // Wait for task group to be cancelled and cancelCounter is incremented
+            repeat {
+                try await Task.sleep(for: .milliseconds(10))
+            } while !taskGroup.isCancelled
+
             XCTAssertEqual(discoveryService.cancelCounter.load(ordering: .relaxed), 1)
         }
     }

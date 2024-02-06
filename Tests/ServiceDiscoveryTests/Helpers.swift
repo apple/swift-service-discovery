@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2021 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2021-2024 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -58,18 +58,3 @@ func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Servic
 
     return _result
 }
-
-#if compiler(>=5.5) && canImport(_Concurrency)
-extension XCTestCase {
-    // TODO: remove once XCTest supports async functions
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func runAsyncAndWaitFor(_ closure: @escaping @Sendable () async throws -> Void, _ timeout: TimeInterval = 1.0) {
-        let finished = expectation(description: "finished")
-        Task.detached {
-            try await closure()
-            finished.fulfill()
-        }
-        wait(for: [finished], timeout: timeout)
-    }
-}
-#endif
