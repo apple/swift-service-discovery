@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftServiceDiscovery open source project
 //
-// Copyright (c) 2020-2023 Apple Inc. and the SwiftServiceDiscovery project authors
+// Copyright (c) 2020-2024 Apple Inc. and the SwiftServiceDiscovery project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -141,7 +141,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
         // Result #2: Later we register bar-service and that should notify the subscriber
         anyServiceDiscovery.subscribeAndUnwrap(
             to: Self.barService,
-            onNext: { (result: Result<[Instance], Error>) -> Void in
+            onNext: { (result: Result<[Instance], Error>) in
                 resultCounter.wrappingIncrement(ordering: .relaxed)
 
                 guard resultCounter.load(ordering: .relaxed) <= 2 else {
@@ -182,36 +182,24 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
 
     // MARK: - async/await API tests
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func test_ServiceDiscoveryBox_async_lookup() throws {
-        #if !(compiler(>=5.5) && canImport(_Concurrency))
-        try XCTSkipIf(true)
-        #else
+    func test_ServiceDiscoveryBox_async_lookup() async throws {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
-        runAsyncAndWaitFor {
-            let _fooInstances = try await boxedServiceDiscovery.lookup(Self.fooService)
-            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.fooService)] to have 1 instance, got \(_fooInstances.count)")
-            XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
-        }
-        #endif
+        let _fooInstances = try await boxedServiceDiscovery.lookup(Self.fooService)
+        XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+        XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
     }
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func test_ServiceDiscoveryBox_async_subscribe() throws {
-        #if !(compiler(>=5.5) && canImport(_Concurrency))
-        try XCTSkipIf(true)
-        #else
+    func test_ServiceDiscoveryBox_async_subscribe() async throws {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let boxedServiceDiscovery = ServiceDiscoveryBox<Service, Instance>(serviceDiscovery)
 
-        let semaphore = DispatchSemaphore(value: 0)
         let counter = ManagedAtomic<Int>(0)
 
-        Task.detached {
+        Task {
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
@@ -221,7 +209,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             serviceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task.detached { () -> Void in
+        let task = Task<Void, Error> { () in
             do {
                 for try await instances in boxedServiceDiscovery.subscribe(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
@@ -241,51 +229,36 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
                     guard let serviceDiscoveryError = error as? ServiceDiscoveryError, serviceDiscoveryError == .unavailable else {
                         return XCTFail("Expected ServiceDiscoveryError.unavailable, got \(error)")
                     }
-                    // Test is complete at this point
-                    semaphore.signal()
+                // Test is complete at this point
                 default:
                     XCTFail("Unexpected error \(error)")
                 }
             }
         }
 
-        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
-        task.cancel()
+        _ = await task.result
 
         XCTAssertEqual(counter.load(ordering: .relaxed), 2, "Expected to receive instances 2 times, got \(counter.load(ordering: .relaxed)) times")
-        #endif
     }
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func test_AnyServiceDiscovery_async_lookup() throws {
-        #if !(compiler(>=5.5) && canImport(_Concurrency))
-        try XCTSkipIf(true)
-        #else
+    func test_AnyServiceDiscovery_async_lookup() async throws {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
-        runAsyncAndWaitFor {
-            let _fooInstances: [Instance] = try await anyServiceDiscovery.lookupAndUnwrap(Self.fooService)
-            XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.fooService)] to have 1 instance, got \(_fooInstances.count)")
-            XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
-        }
-        #endif
+        let _fooInstances: [Instance] = try await anyServiceDiscovery.lookupAndUnwrap(Self.fooService)
+        XCTAssertEqual(_fooInstances.count, 1, "Expected service[\(Self.fooService)] to have 1 instance, got \(_fooInstances.count)")
+        XCTAssertEqual(_fooInstances, Self.fooInstances, "Expected service[\(Self.fooService)] to have instances \(Self.fooInstances), got \(_fooInstances)")
     }
 
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
-    func test_AnyServiceDiscovery_async_subscribe() throws {
-        #if !(compiler(>=5.5) && canImport(_Concurrency))
-        try XCTSkipIf(true)
-        #else
+    func test_AnyServiceDiscovery_async_subscribe() async throws {
         let configuration = InMemoryServiceDiscovery<Service, Instance>.Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
         let anyServiceDiscovery = AnyServiceDiscovery(serviceDiscovery)
 
-        let semaphore = DispatchSemaphore(value: 0)
         let counter = ManagedAtomic<Int>(0)
 
-        Task.detached {
+        Task {
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
@@ -295,7 +268,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             serviceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task.detached { () -> Void in
+        let task = Task<Void, Error> { () in
             do {
                 for try await instances: [Instance] in anyServiceDiscovery.subscribeAndUnwrap(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
@@ -315,18 +288,15 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
                     guard let serviceDiscoveryError = error as? ServiceDiscoveryError, serviceDiscoveryError == .unavailable else {
                         return XCTFail("Expected ServiceDiscoveryError.unavailable, got \(error)")
                     }
-                    // Test is complete at this point
-                    semaphore.signal()
+                // Test is complete at this point
                 default:
                     XCTFail("Unexpected error \(error)")
                 }
             }
         }
 
-        _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
-        task.cancel()
+        _ = await task.result
 
         XCTAssertEqual(counter.load(ordering: .relaxed), 2, "Expected to receive instances 2 times, got \(counter.load(ordering: .relaxed)) times")
-        #endif
     }
 }
