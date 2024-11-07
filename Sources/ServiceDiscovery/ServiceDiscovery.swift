@@ -61,7 +61,11 @@ public protocol ServiceDiscovery: AnyObject {
     ///                 including cancellation requested through `CancellationToken`.
     ///
     /// -  Returns: A ``CancellationToken`` instance that can be used to cancel the subscription in the future.
-    func subscribe(to service: Service, onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken
+    func subscribe(
+        to service: Service,
+        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
+        onComplete completionHandler: @escaping (CompletionReason) -> Void
+    ) -> CancellationToken
 }
 
 // MARK: - Subscription
@@ -72,9 +76,7 @@ public class CancellationToken {
     private let _completionHandler: (CompletionReason) -> Void
 
     /// Returns `true` if the subscription has been cancelled.
-    public var isCancelled: Bool {
-        self._isCancelled.load(ordering: .acquiring)
-    }
+    public var isCancelled: Bool { self._isCancelled.load(ordering: .acquiring) }
 
     /// Creates a new token.
     public init(isCancelled: Bool = false, completionHandler: @escaping (CompletionReason) -> Void = { _ in }) {
@@ -84,7 +86,9 @@ public class CancellationToken {
 
     /// Cancels the subscription.
     public func cancel() {
-        guard self._isCancelled.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged else { return }
+        guard self._isCancelled.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged else {
+            return
+        }
         self._completionHandler(.cancellationRequested)
     }
 }
@@ -102,21 +106,16 @@ public struct CompletionReason: Equatable, CustomStringConvertible {
 
         var description: String {
             switch self {
-            case .cancellationRequested:
-                return "cancellationRequested"
-            case .serviceDiscoveryUnavailable:
-                return "serviceDiscoveryUnavailable"
-            case .failedToMapService:
-                return "failedToMapService"
+            case .cancellationRequested: return "cancellationRequested"
+            case .serviceDiscoveryUnavailable: return "serviceDiscoveryUnavailable"
+            case .failedToMapService: return "failedToMapService"
             }
         }
     }
 
     internal let type: ReasonType
 
-    public var description: String {
-        "CompletionReason.\(String(describing: self.type))"
-    }
+    public var description: String { "CompletionReason.\(String(describing: self.type))" }
 
     /// Cancellation requested through `CancellationToken`.
     public static let cancellationRequested = CompletionReason(type: .cancellationRequested)
@@ -138,19 +137,15 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
 
         var description: String {
             switch self {
-            case .unknownService:
-                return "unknownService"
-            case .timedOut:
-                return "timedOut"
+            case .unknownService: return "unknownService"
+            case .timedOut: return "timedOut"
             }
         }
     }
 
     internal let type: ErrorType
 
-    public var description: String {
-        "LookupError.\(String(describing: self.type))"
-    }
+    public var description: String { "LookupError.\(String(describing: self.type))" }
 
     /// Lookup cannot be completed because the service is unknown.
     public static let unknownService = LookupError(type: .unknownService)
@@ -167,24 +162,18 @@ public struct ServiceDiscoveryError: Error, Equatable, CustomStringConvertible {
 
         var description: String {
             switch self {
-            case .unavailable:
-                return "unavailable"
-            case .other(let detail):
-                return "other: \(detail)"
+            case .unavailable: return "unavailable"
+            case .other(let detail): return "other: \(detail)"
             }
         }
     }
 
     internal let type: ErrorType
 
-    public var description: String {
-        "ServiceDiscoveryError.\(String(describing: self.type))"
-    }
+    public var description: String { "ServiceDiscoveryError.\(String(describing: self.type))" }
 
     /// `ServiceDiscovery` instance is unavailable.
     public static let unavailable = ServiceDiscoveryError(type: .unavailable)
 
-    public static func other(_ detail: String) -> ServiceDiscoveryError {
-        ServiceDiscoveryError(type: .other(detail))
-    }
+    public static func other(_ detail: String) -> ServiceDiscoveryError { ServiceDiscoveryError(type: .other(detail)) }
 }

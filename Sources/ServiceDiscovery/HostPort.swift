@@ -22,7 +22,5 @@ public struct HostPort: Hashable, CustomStringConvertible {
         self.port = port
     }
 
-    public var description: String {
-        "\(self.host):\(self.port)"
-    }
+    public var description: String { "\(self.host):\(self.port)" }
 }

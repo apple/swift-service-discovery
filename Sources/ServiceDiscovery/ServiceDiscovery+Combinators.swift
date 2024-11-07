@@ -19,9 +19,9 @@ public extension ServiceDiscovery {
     /// the derived function.
     ///
     /// It is not necessarily safe to block in this closure. This closure should not block for safety.
-    func mapInstance<DerivedInstance: Hashable>(_ transformer: @escaping (Instance) throws -> DerivedInstance) -> MapInstanceServiceDiscovery<Self, DerivedInstance> {
-        MapInstanceServiceDiscovery(originalSD: self, transformer: transformer)
-    }
+    func mapInstance<DerivedInstance: Hashable>(_ transformer: @escaping (Instance) throws -> DerivedInstance)
+        -> MapInstanceServiceDiscovery<Self, DerivedInstance>
+    { MapInstanceServiceDiscovery(originalSD: self, transformer: transformer) }
 
     /// Creates a new ``ServiceDiscovery/ServiceDiscovery`` implementation based on this one, transforming the services according to
     /// the derived function.
