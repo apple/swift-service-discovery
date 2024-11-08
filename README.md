@@ -113,7 +113,7 @@ let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
 To add a dependency on the API package, you need to declare it in your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/apple/swift-service-discovery.git", from: "0.1.0"),
+.package(url: "https://github.com/apple/swift-service-discovery.git", from: "1.3.0"),
 ```
 
 and to your library target, add "ServiceDiscovery" to your dependencies:
