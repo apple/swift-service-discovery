@@ -14,7 +14,7 @@
 
 import Atomics
 import Dispatch
-import Foundation // for NSLock
+import Foundation  // for NSLock
 
 /// Provides lookup for service instances that are stored in-memory.
 public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
@@ -27,30 +27,29 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
     private let queue: DispatchQueue
 
-    public var defaultLookupTimeout: DispatchTimeInterval {
-        self.configuration.defaultLookupTimeout
-    }
+    public var defaultLookupTimeout: DispatchTimeInterval { self.configuration.defaultLookupTimeout }
 
-    public var isShutdown: Bool {
-        self.lock.withLock {
-            self._isShutdown
-        }
-    }
+    public var isShutdown: Bool { self.lock.withLock { self._isShutdown } }
 
-    public init(configuration: Configuration, queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)) {
+    public init(
+        configuration: Configuration,
+        queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)
+    ) {
         self.configuration = configuration
         self._serviceInstances = configuration.serviceInstances
         self.queue = queue
     }
 
-    public func lookup(_ service: Service, deadline: DispatchTime? = nil, callback: @escaping (Result<[Instance], Error>) -> Void) {
+    public func lookup(
+        _ service: Service,
+        deadline: DispatchTime? = nil,
+        callback: @escaping (Result<[Instance], Error>) -> Void
+    ) {
         let isDone = ManagedAtomic<Bool>(false)
 
         let lookupWorkItem = DispatchWorkItem {
             let result = self.lock.withLock { () -> Result<[Instance], Error> in
-                if self._isShutdown {
-                    return .failure(ServiceDiscoveryError.unavailable)
-                }
+                if self._isShutdown { return .failure(ServiceDiscoveryError.unavailable) }
 
                 if let instances = self._lookupNow(service) {
                     return .success(instances)
@@ -81,8 +80,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         case yieldFirstElement([Instance]?)
     }
 
-    @discardableResult
-    public func subscribe(
+    @discardableResult public func subscribe(
         to service: Service,
         onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
         onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
@@ -95,9 +93,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         )
 
         let action = self.lock.withLock { () -> SubscribeAction in
-            guard !self._isShutdown else {
-                return .cancelSinceShutdown
-            }
+            guard !self._isShutdown else { return .cancelSinceShutdown }
 
             // first add the subscription
             var subscriptions = self._serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
@@ -142,9 +138,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
     public func shutdown() {
         let maybeServiceSubscriptions = self.lock.withLock { () -> Dictionary<Service, [Subscription]>.Values? in
-            if self._isShutdown {
-                return nil
-            }
+            if self._isShutdown { return nil }
 
             self._isShutdown = true
             let subscriptions = self._serviceSubscriptions
@@ -153,9 +147,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
             return subscriptions.values
         }
 
-        guard let serviceSubscriptions = maybeServiceSubscriptions else {
-            return
-        }
+        guard let serviceSubscriptions = maybeServiceSubscriptions else { return }
 
         for subscriptions in serviceSubscriptions {
             for sub in subscriptions.lazy.filter({ !$0.cancellationToken.isCancelled }) {
@@ -165,11 +157,7 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 
     private func _lookupNow(_ service: Service) -> [Instance]? {
-        if let instances = self._serviceInstances[service] {
-            return instances
-        } else {
-            return nil
-        }
+        if let instances = self._serviceInstances[service] { return instances } else { return nil }
     }
 
     private struct Subscription {
@@ -182,23 +170,17 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 public extension InMemoryServiceDiscovery {
     struct Configuration {
         /// Default configuration
-        public static var `default`: Configuration {
-            .init()
-        }
+        public static var `default`: Configuration { .init() }
 
         /// Lookup timeout in case `deadline` is not specified
         public var defaultLookupTimeout: DispatchTimeInterval = .milliseconds(100)
 
         internal var serviceInstances: [Service: [Instance]]
 
-        public init() {
-            self.init(serviceInstances: [:])
-        }
+        public init() { self.init(serviceInstances: [:]) }
 
         /// Initializes `InMemoryServiceDiscovery` with the given service to instances mappings.
-        public init(serviceInstances: [Service: [Instance]]) {
-            self.serviceInstances = serviceInstances
-        }
+        public init(serviceInstances: [Service: [Instance]]) { self.serviceInstances = serviceInstances }
 
         /// Registers `service` and its `instances`.
         public mutating func register(service: Service, instances: [Instance]) {
@@ -212,9 +194,7 @@ public extension InMemoryServiceDiscovery {
 private extension NSLock {
     func withLock<Result>(_ body: () throws -> Result) rethrows -> Result {
         self.lock()
-        defer {
-            self.unlock()
-        }
+        defer { self.unlock() }
         return try body()
     }
 }

@@ -14,6 +14,7 @@
 
 import Dispatch
 
+/// A service discovery implementation that maps services using a closure.
 public final class MapServiceServiceDiscovery<BaseDiscovery: ServiceDiscovery, ComputedService: Hashable> {
     typealias Transformer = (ComputedService) throws -> BaseDiscovery.Service
 
@@ -28,16 +29,28 @@ public final class MapServiceServiceDiscovery<BaseDiscovery: ServiceDiscovery, C
 
 extension MapServiceServiceDiscovery: ServiceDiscovery {
     /// Default timeout for lookup.
-    public var defaultLookupTimeout: DispatchTimeInterval {
-        self.originalSD.defaultLookupTimeout
-    }
+    public var defaultLookupTimeout: DispatchTimeInterval { self.originalSD.defaultLookupTimeout }
 
-    public func lookup(_ service: ComputedService, deadline: DispatchTime?, callback: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void) {
+    /// Performs a lookup for the given service's instances. The result will be sent to `callback`.
+    ///
+    /// ``defaultLookupTimeout`` will be used to compute `deadline` in case one is not specified.
+    ///
+    /// ### Threading
+    ///
+    /// `callback` may be invoked on arbitrary threads, as determined by implementation.
+    ///
+    /// - Parameters:
+    ///   - service: The service to lookup
+    ///   - deadline: Lookup is considered to have timed out if it does not complete by this time
+    ///   - callback: The closure to receive lookup result
+    public func lookup(
+        _ service: ComputedService,
+        deadline: DispatchTime?,
+        callback: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void
+    ) {
         let derivedService: BaseDiscovery.Service
 
-        do {
-            derivedService = try self.transformer(service)
-        } catch {
+        do { derivedService = try self.transformer(service) } catch {
             callback(.failure(error))
             return
         }
@@ -45,12 +58,30 @@ extension MapServiceServiceDiscovery: ServiceDiscovery {
         self.originalSD.lookup(derivedService, deadline: deadline, callback: callback)
     }
 
-    public func subscribe(to service: ComputedService, onNext nextResultHandler: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken {
+    /// Subscribes to receive a service's instances whenever they change.
+    ///
+    /// The service's current list of instances will be sent to `nextResultHandler` when this method is first called. Subsequently,
+    /// `nextResultHandler` will only be invoked when the `service`'s instances change.
+    ///
+    /// ### Threading
+    ///
+    /// `nextResultHandler` and `completionHandler` may be invoked on arbitrary threads, as determined by implementation.
+    ///
+    /// - Parameters:
+    ///   - service: The service to subscribe to
+    ///   - nextResultHandler: The closure to receive update result
+    ///   - completionHandler: The closure to invoke when the subscription completes (e.g., when the `ServiceDiscovery` instance exits, etc.),
+    ///                 including cancellation requested through `CancellationToken`.
+    ///
+    /// -  Returns: A ``CancellationToken`` instance that can be used to cancel the subscription in the future.
+    public func subscribe(
+        to service: ComputedService,
+        onNext nextResultHandler: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void,
+        onComplete completionHandler: @escaping (CompletionReason) -> Void
+    ) -> CancellationToken {
         let derivedService: BaseDiscovery.Service
 
-        do {
-            derivedService = try self.transformer(service)
-        } catch {
+        do { derivedService = try self.transformer(service) } catch {
             // Ok, we couldn't transform the service. We want to throw an error into `nextResultHandler` and then immediately cancel.
             let cancellationToken = CancellationToken(isCancelled: true, completionHandler: completionHandler)
             nextResultHandler(.failure(error))
@@ -58,10 +89,6 @@ extension MapServiceServiceDiscovery: ServiceDiscovery {
             return cancellationToken
         }
 
-        return self.originalSD.subscribe(
-            to: derivedService,
-            onNext: nextResultHandler,
-            onComplete: completionHandler
-        )
+        return self.originalSD.subscribe(to: derivedService, onNext: nextResultHandler, onComplete: completionHandler)
     }
 }

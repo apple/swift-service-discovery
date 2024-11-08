@@ -57,16 +57,44 @@ A good SwiftServiceDiscovery patch is:
 3. Documented, adding API documentation as needed to cover new functions and properties.
 4. Accompanied by a great commit message, using our commit message template.
 
-### Commit Message Template
+### Run CI checks locally
 
-We require that your commit messages match our template. The easiest way to do that is to get git to help you by explicitly using the template. To do that, `cd` to the root of our repository and run:
+You can run the Github Actions workflows locally using
+[act](https://github.com/nektos/act). To run all the jobs that run on a pull
+request, use the following command:
 
-    git config commit.template dev/git.commit.template
+```
+% act pull_request
+```
+
+To run just a single job, use `workflow_call -j <job>`, and specify the inputs
+the job expects. For example, to run just shellcheck:
+
+```
+% act workflow_call -j soundness --input shell_check_enabled=true
+```
+
+To bind-mount the working directory to the container, rather than a copy, use
+`--bind`. For example, to run just the formatting, and have the results
+reflected in your working directory:
+
+```
+% act --bind workflow_call -j soundness --input format_check_enabled=true
+```
+
+If you'd like `act` to always run with certain flags, these can be be placed in
+an `.actrc` file either in the current working directory or your home
+directory, for example:
+
+```
+--container-architecture=linux/amd64
+--remote-name upstream
+--action-offline-mode
+```
 
 ### Make sure Tests work on Linux
 
 SwiftServiceDiscovery uses XCTest to run tests on both macOS and Linux.
-
 
 ## How to contribute your work
 

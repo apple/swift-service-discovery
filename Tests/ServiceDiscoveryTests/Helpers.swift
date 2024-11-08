@@ -16,32 +16,25 @@ import Dispatch
 import ServiceDiscovery
 import XCTest
 
-enum TestError: Error {
-    case error
-}
+enum TestError: Error { case error }
 
 func compareTimeInterval(_ lhs: DispatchTimeInterval, _ rhs: DispatchTimeInterval) -> Bool {
     switch (lhs, rhs) {
-    case (.seconds(let lhs), .seconds(let rhs)):
-        return lhs == rhs
-    case (.milliseconds(let lhs), .milliseconds(let rhs)):
-        return lhs == rhs
-    case (.microseconds(let lhs), .microseconds(let rhs)):
-        return lhs == rhs
-    case (.nanoseconds(let lhs), .nanoseconds(let rhs)):
-        return lhs == rhs
-    case (.never, .never):
-        return true
-    case (.seconds, _), (.milliseconds, _), (.microseconds, _), (.nanoseconds, _), (.never, _):
-        return false
-    #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-    @unknown default:
-        return false
+    case (.seconds(let lhs), .seconds(let rhs)): return lhs == rhs
+    case (.milliseconds(let lhs), .milliseconds(let rhs)): return lhs == rhs
+    case (.microseconds(let lhs), .microseconds(let rhs)): return lhs == rhs
+    case (.nanoseconds(let lhs), .nanoseconds(let rhs)): return lhs == rhs
+    case (.never, .never): return true
+    case (.seconds, _), (.milliseconds, _), (.microseconds, _), (.nanoseconds, _), (.never, _): return false
+    #if canImport(Darwin)
+    @unknown default: return false
     #endif
     }
 }
 
-func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Service) throws -> Result<[SD.Instance], Error> {
+func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Service) throws -> Result<
+    [SD.Instance], Error
+> {
     let semaphore = DispatchSemaphore(value: 0)
     var result: Result<[SD.Instance], Error>?
 
@@ -52,9 +45,7 @@ func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Servic
 
     _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
 
-    guard let _result = result else {
-        throw LookupError.timedOut
-    }
+    guard let _result = result else { throw LookupError.timedOut }
 
     return _result
 }
