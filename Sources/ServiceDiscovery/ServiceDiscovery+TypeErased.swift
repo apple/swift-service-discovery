@@ -198,7 +198,6 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     }
 }
 
-#if compiler(>=5.5) && canImport(_Concurrency)
 public extension AnyServiceDiscovery {
     /// See ``ServiceDiscovery/lookup(_:deadline:)``.
     ///
@@ -230,6 +229,5 @@ public extension AnyServiceDiscovery {
         )
     }
 }
-#endif
 
 public enum TypeErasedServiceDiscoveryError: Error { case typeMismatch(description: String) }

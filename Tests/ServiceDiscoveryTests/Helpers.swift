@@ -25,7 +25,8 @@ func compareTimeInterval(_ lhs: DispatchTimeInterval, _ rhs: DispatchTimeInterva
     case (.microseconds(let lhs), .microseconds(let rhs)): return lhs == rhs
     case (.nanoseconds(let lhs), .nanoseconds(let rhs)): return lhs == rhs
     case (.never, .never): return true
-    case (.seconds, _), (.milliseconds, _), (.microseconds, _), (.nanoseconds, _), (.never, _): return false #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+    case (.seconds, _), (.milliseconds, _), (.microseconds, _), (.nanoseconds, _), (.never, _): return false
+    #if canImport(Darwin)
     @unknown default: return false
     #endif
     }

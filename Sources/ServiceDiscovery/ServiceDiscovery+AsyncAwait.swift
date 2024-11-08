@@ -14,8 +14,6 @@
 
 import Dispatch
 
-#if compiler(>=5.5) && canImport(_Concurrency)
-
 public extension ServiceDiscovery {
     /// Performs async lookup for the given service's instances.
     ///
@@ -106,5 +104,3 @@ public extension ServiceDiscovery {
         public mutating func next() async throws -> [Instance]? { try await self.underlying.next() }
     }
 }
-
-#endif
