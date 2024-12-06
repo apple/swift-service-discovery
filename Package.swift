@@ -34,3 +34,9 @@ let package = Package(
         .testTarget(name: "ServiceDiscoveryTests", dependencies: ["ServiceDiscovery"]),
     ]
 )
+
+for target in package.targets {
+    var settings = target.swiftSettings ?? []
+    settings.append(.enableExperimentalFeature("StrictConcurrency=complete"))
+    target.swiftSettings = settings
+}

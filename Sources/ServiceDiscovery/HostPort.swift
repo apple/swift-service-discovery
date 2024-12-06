@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Represents a service instance with host and port.
-public struct HostPort: Hashable, CustomStringConvertible {
+public struct HostPort: Hashable, CustomStringConvertible, Sendable {
     public let host: String
     public let port: Int
 

@@ -17,20 +17,24 @@ import Dispatch
 // MARK: - Generic wrapper for `ServiceDiscovery` instance
 
 /// Generic wrapper for ``ServiceDiscovery/ServiceDiscovery`` instance.
-public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
-    private let _underlying: Any
+@preconcurrency
+public class ServiceDiscoveryBox<Service: Hashable & Sendable, Instance: Hashable & Sendable>: ServiceDiscovery {
+    private let _underlying: any Sendable
 
-    private let _defaultLookupTimeout: () -> DispatchTimeInterval
+    private let _defaultLookupTimeout: @Sendable () -> DispatchTimeInterval
 
-    private let _lookup: (Service, DispatchTime?, @escaping (Result<[Instance], Error>) -> Void) -> Void
+    private let _lookup:
+        @Sendable (Service, DispatchTime?, @Sendable @escaping (Result<[Instance], Error>) -> Void) -> Void
 
     private let _subscribe:
-        (Service, @escaping (Result<[Instance], Error>) -> Void, @escaping (CompletionReason) -> Void) ->
-            CancellationToken
+        @Sendable (
+            Service, @Sendable @escaping (Result<[Instance], Error>) -> Void,
+            @Sendable @escaping (CompletionReason) -> Void
+        ) -> CancellationToken
 
     public var defaultLookupTimeout: DispatchTimeInterval { self._defaultLookupTimeout() }
 
-    public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl)
+    @preconcurrency public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl)
     where ServiceDiscoveryImpl.Service == Service, ServiceDiscoveryImpl.Instance == Instance {
         self._underlying = serviceDiscovery
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
@@ -43,16 +47,16 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
         }
     }
 
-    public func lookup(
+    @preconcurrency public func lookup(
         _ service: Service,
         deadline: DispatchTime? = nil,
-        callback: @escaping (Result<[Instance], Error>) -> Void
+        callback: @Sendable @escaping (Result<[Instance], Error>) -> Void
     ) { self._lookup(service, deadline, callback) }
 
-    @discardableResult public func subscribe(
+    @preconcurrency @discardableResult public func subscribe(
         to service: Service,
-        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
+        onNext nextResultHandler: @Sendable @escaping (Result<[Instance], Error>) -> Void,
+        onComplete completionHandler: @Sendable @escaping (CompletionReason) -> Void = { _ in }
     ) -> CancellationToken { self._subscribe(service, nextResultHandler, completionHandler) }
 
     /// Unwraps the underlying ``ServiceDiscovery/ServiceDiscovery`` instance as `ServiceDiscoveryImpl` type.
@@ -74,16 +78,24 @@ public class ServiceDiscoveryBox<Service: Hashable, Instance: Hashable>: Service
 // MARK: - Type-erased wrapper for `ServiceDiscovery` instance
 
 /// Type-erased wrapper for ``ServiceDiscovery/ServiceDiscovery`` instance.
-public class AnyServiceDiscovery: ServiceDiscovery {
-    private let _underlying: Any
+public final class AnyServiceDiscovery: ServiceDiscovery {
+    public typealias Service = AnyHashable
+    public typealias Instance = AnyHashable
+    private let _underlying: any ServiceDiscovery
 
-    private let _defaultLookupTimeout: () -> DispatchTimeInterval
+    private let _defaultLookupTimeout: @Sendable () -> DispatchTimeInterval
 
-    private let _lookup: (AnyHashable, DispatchTime?, @escaping (Result<[AnyHashable], Error>) -> Void) -> Void
+    private let _lookup:
+        @Sendable (
+            any Hashable & Sendable, DispatchTime?,
+            @Sendable @escaping (Result<[any Hashable & Sendable], Error>) -> Void
+        ) -> Void
 
     private let _subscribe:
-        (AnyHashable, @escaping (Result<[AnyHashable], Error>) -> Void, @escaping (CompletionReason) -> Void) ->
-            CancellationToken
+        @Sendable (
+            any Hashable & Sendable, @Sendable @escaping (Result<[any Hashable & Sendable], Error>) -> Void,
+            @Sendable @escaping (CompletionReason) -> Void
+        ) -> CancellationToken
 
     public var defaultLookupTimeout: DispatchTimeInterval { self._defaultLookupTimeout() }
 
@@ -92,24 +104,22 @@ public class AnyServiceDiscovery: ServiceDiscovery {
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
 
         self._lookup = { anyService, deadline, callback in
-            guard let service = anyService.base as? ServiceDiscoveryImpl.Service else {
+            guard let service = anyService as? ServiceDiscoveryImpl.Service else {
                 preconditionFailure(
-                    "Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService.base))"
+                    "Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService))"
                 )
             }
-            serviceDiscovery.lookup(service, deadline: deadline) { result in
-                callback(result.map { $0.map(AnyHashable.init) })
-            }
+            serviceDiscovery.lookup(service, deadline: deadline) { result in callback(result.map { $0 }) }
         }
         self._subscribe = { anyService, nextResultHandler, completionHandler in
-            guard let service = anyService.base as? ServiceDiscoveryImpl.Service else {
+            guard let service = anyService as? ServiceDiscoveryImpl.Service else {
                 preconditionFailure(
-                    "Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService.base))"
+                    "Expected service type to be \(ServiceDiscoveryImpl.Service.self), got \(type(of: anyService))"
                 )
             }
             return serviceDiscovery.subscribe(
                 to: service,
-                onNext: { result in nextResultHandler(result.map { $0.map(AnyHashable.init) }) },
+                onNext: { result in nextResultHandler(result.map { $0 }) },
                 onComplete: completionHandler
             )
         }
@@ -119,48 +129,94 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     ///
     /// - Warning: If `service` type does not match the underlying `ServiceDiscovery`'s, it would result in a failure.
     public func lookup(
-        _ service: AnyHashable,
+        _ service: any Hashable & Sendable,
         deadline: DispatchTime? = nil,
-        callback: @escaping (Result<[AnyHashable], Error>) -> Void
+        callback: @Sendable @escaping (Result<[any Hashable & Sendable], Error>) -> Void
     ) { self._lookup(service, deadline, callback) }
 
     /// See ``ServiceDiscovery/lookup(_:deadline:callback:)``.
     ///
+    /// - Warning: If `service` type does not match the underlying `ServiceDiscovery`'s, it would result in a failure.
+    @preconcurrency
+    @available(*, deprecated, message: "Use the lookup variant with an (any Hashable & Sendable) service instead")
+    public func lookup(
+        _ service: AnyHashable,
+        deadline: DispatchTime? = nil,
+        callback: @Sendable @escaping (Result<[AnyHashable], Error>) -> Void
+    ) {
+        guard service.base is (any Hashable) else {
+            callback(
+                .failure(
+                    TypeErasedServiceDiscoveryError.typeMismatch(
+                        description: "Expected service type to be Hashable, but \(type(of: service)) isn't"
+                    )
+                )
+            )
+            return
+        }
+        // Force casting here again as we can't dynamically cast just to get the Sendable conformance.
+        // This is safe, as the hashability is already verified above.
+        self._lookup(service.base as! (any Hashable & Sendable), deadline) { result in
+            callback(result.map { array in array.map { item in AnyHashable(item) } })
+        }
+    }
+
+    /// See ``ServiceDiscovery/lookup(_:deadline:callback:)``.
+    ///
     /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
-    public func lookupAndUnwrap<Service, Instance>(
+    @preconcurrency public func lookupAndUnwrap<Service, Instance>(
         _ service: Service,
         deadline: DispatchTime? = nil,
-        callback: @escaping (Result<[Instance], Error>) -> Void
-    ) where Service: Hashable, Instance: Hashable {
-        self._lookup(AnyHashable(service), deadline) { result in callback(self.transform(result)) }
+        callback: @Sendable @escaping (Result<[Instance], Error>) -> Void
+    ) where Service: Hashable & Sendable, Instance: Hashable & Sendable {
+        self._lookup(service, deadline) { result in callback(self.transform(result)) }
     }
 
     /// See ``ServiceDiscovery/subscribe(to:onNext:onComplete:)``.
     ///
     /// - Warning: If `service` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s, it would result in a failure.
     @discardableResult public func subscribe(
-        to service: AnyHashable,
-        onNext nextResultHandler: @escaping (Result<[AnyHashable], Error>) -> Void,
-        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
+        to service: any Hashable & Sendable,
+        onNext nextResultHandler: @Sendable @escaping (Result<[any Hashable & Sendable], Error>) -> Void,
+        onComplete completionHandler: @Sendable @escaping (CompletionReason) -> Void = { _ in }
     ) -> CancellationToken { self._subscribe(service, nextResultHandler, completionHandler) }
 
     /// See ``ServiceDiscovery/subscribe(to:onNext:onComplete:)``.
     ///
-    /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
-    @discardableResult public func subscribeAndUnwrap<Service, Instance>(
-        to service: Service,
-        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
-    ) -> CancellationToken where Service: Hashable, Instance: Hashable {
-        self._subscribe(
-            AnyHashable(service),
-            { result in nextResultHandler(self.transform(result)) },
+    /// - Warning: If `service` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s, it would result in a failure.
+    @preconcurrency @discardableResult
+    @available(*, deprecated, message: "Use the subscribe variant with an (any Hashable & Sendable) service instead")
+    public func subscribe(
+        to service: AnyHashable,
+        onNext nextResultHandler: @Sendable @escaping (Result<[AnyHashable], Error>) -> Void,
+        onComplete completionHandler: @Sendable @escaping (CompletionReason) -> Void = { _ in }
+    ) -> CancellationToken {
+        guard service.base is (any Hashable) else {
+            completionHandler(.failedToMapService)
+            return CancellationToken(isCancelled: true)
+        }
+        // Force casting here again as we can't dynamically cast just to get the Sendable conformance.
+        // This is safe, as the hashability is already verified above.
+        return self._subscribe(
+            service.base as! (any Hashable & Sendable),
+            { result in nextResultHandler(result.map { array in array.map { item in AnyHashable(item) } }) },
             completionHandler
         )
     }
 
-    private func transform<Instance>(_ result: Result<[AnyHashable], Error>) -> Result<[Instance], Error>
-    where Instance: Hashable {
+    /// See ``ServiceDiscovery/subscribe(to:onNext:onComplete:)``.
+    ///
+    /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
+    @discardableResult @preconcurrency public func subscribeAndUnwrap<Service, Instance>(
+        to service: Service,
+        onNext nextResultHandler: @Sendable @escaping (Result<[Instance], Error>) -> Void,
+        onComplete completionHandler: @Sendable @escaping (CompletionReason) -> Void = { _ in }
+    ) -> CancellationToken where Service: Hashable & Sendable, Instance: Hashable & Sendable {
+        self._subscribe(service, { result in nextResultHandler(self.transform(result)) }, completionHandler)
+    }
+
+    private func transform<Instance>(_ result: Result<[any Hashable & Sendable], Error>) -> Result<[Instance], Error>
+    where Instance: Hashable & Sendable {
         result.flatMap { anyInstances in
             var instances: [Instance] = []
             for anyInstance in anyInstances {
@@ -173,10 +229,11 @@ public class AnyServiceDiscovery: ServiceDiscovery {
         }
     }
 
-    private func transform<Instance>(_ anyInstance: AnyHashable) throws -> Instance where Instance: Hashable {
-        guard let instance = anyInstance.base as? Instance else {
+    private func transform<Instance>(_ anyInstance: any Hashable & Sendable) throws -> Instance
+    where Instance: Hashable & Sendable {
+        guard let instance = anyInstance as? Instance else {
             throw TypeErasedServiceDiscoveryError.typeMismatch(
-                description: "Expected instance type to be \(Instance.self), got \(type(of: anyInstance.base))"
+                description: "Expected instance type to be \(Instance.self), got \(type(of: anyInstance))"
             )
         }
         return instance
@@ -198,23 +255,23 @@ public class AnyServiceDiscovery: ServiceDiscovery {
     }
 }
 
-public extension AnyServiceDiscovery {
+extension AnyServiceDiscovery {
     /// See ``ServiceDiscovery/lookup(_:deadline:)``.
     ///
     /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) func lookupAndUnwrap<Service, Instance>(
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) @preconcurrency public func lookupAndUnwrap<Service, Instance>(
         _ service: Service,
         deadline: DispatchTime? = nil
-    ) async throws -> [Instance] where Service: Hashable, Instance: Hashable {
+    ) async throws -> [Instance] where Service: Hashable & Sendable, Instance: Hashable & Sendable {
         try await self.lookup(service, deadline: deadline).map(self.transform)
     }
 
     /// See ``ServiceDiscovery/subscribe(to:)``.
     ///
     /// - Warning: If `Service` or `Instance` type does not match the underlying ``ServiceDiscovery/ServiceDiscovery``'s associated types, it would result in a failure.
-    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) func subscribeAndUnwrap<Service, Instance>(to service: Service)
-        -> ServiceSnapshots<Instance> where Service: Hashable, Instance: Hashable
-    {
+    @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) @preconcurrency
+    public func subscribeAndUnwrap<Service, Instance>(to service: Service) -> ServiceSnapshots<Instance>
+    where Service: Hashable & Sendable, Instance: Hashable & Sendable {
         ServiceSnapshots(
             AsyncThrowingStream { continuation in
                 Task {
@@ -230,4 +287,4 @@ public extension AnyServiceDiscovery {
     }
 }
 
-public enum TypeErasedServiceDiscoveryError: Error { case typeMismatch(description: String) }
+public enum TypeErasedServiceDiscoveryError: Error, Sendable { case typeMismatch(description: String) }

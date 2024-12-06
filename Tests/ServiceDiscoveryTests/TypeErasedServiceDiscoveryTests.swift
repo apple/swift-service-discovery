@@ -254,7 +254,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
 
         let counter = ManagedAtomic<Int>(0)
 
-        Task {
+        Task { @Sendable in
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
@@ -264,7 +264,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             serviceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task<Void, Error> { () in
+        let task = Task<Void, Error> { @Sendable in
             do {
                 for try await instances in boxedServiceDiscovery.subscribe(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
@@ -333,7 +333,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
 
         let counter = ManagedAtomic<Int>(0)
 
-        Task {
+        Task { @Sendable in
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
@@ -343,7 +343,7 @@ class TypeErasedServiceDiscoveryTests: XCTestCase {
             serviceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task<Void, Error> { () in
+        let task = Task<Void, Error> { @Sendable in
             do {
                 for try await instances: [Instance] in anyServiceDiscovery.subscribeAndUnwrap(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
