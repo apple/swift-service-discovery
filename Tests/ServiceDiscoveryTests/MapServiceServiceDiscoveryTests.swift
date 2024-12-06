@@ -102,7 +102,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
         let resultCounter = ManagedAtomic<Int>(0)
 
         let onCompleteInvoked = ManagedAtomic<Bool>(false)
-        let onComplete: (CompletionReason) -> Void = { reason in
+        let onComplete: @Sendable (CompletionReason) -> Void = { reason in
             XCTAssertEqual(
                 reason,
                 .serviceDiscoveryUnavailable,
@@ -218,7 +218,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
         )
 
         let onCompleteInvoked = ManagedAtomic<Bool>(false)
-        let onComplete: (CompletionReason) -> Void = { reason in
+        let onComplete: @Sendable (CompletionReason) -> Void = { reason in
             XCTAssertEqual(
                 reason,
                 .cancellationRequested,
@@ -444,7 +444,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
 
         let counter = ManagedAtomic<Int>(0)
 
-        Task {
+        Task { @Sendable in
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
@@ -454,7 +454,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
             baseServiceDiscovery.register(Self.barService, instances: Self.barInstances)
         }
 
-        let task = Task<Void, Error> { () in
+        let task = Task<Void, Error> { @Sendable in
             do {
                 for try await instances in serviceDiscovery.subscribe(to: Self.computedBarService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
@@ -503,7 +503,7 @@ class MapServiceServiceDiscoveryTests: XCTestCase {
         let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
             .mapService { (_: Int) -> String in throw TestError.error }
 
-        let task = Task<Void, Error> { () in
+        let task = Task<Void, Error> { @Sendable in
             do {
                 for try await instances in serviceDiscovery.subscribe(to: Self.computedFooService) {
                     XCTFail("Expected error, got \(instances)")

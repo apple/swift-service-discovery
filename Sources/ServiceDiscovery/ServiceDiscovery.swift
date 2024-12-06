@@ -22,11 +22,11 @@ import Dispatch
 /// ### Threading
 ///
 /// `ServiceDiscovery` implementations **MUST be thread-safe**.
-public protocol ServiceDiscovery: AnyObject {
+@preconcurrency public protocol ServiceDiscovery: AnyObject, Sendable {
     /// Service identity type
-    associatedtype Service: Hashable
+    associatedtype Service: Hashable & Sendable
     /// Service instance type
-    associatedtype Instance: Hashable
+    associatedtype Instance: Hashable & Sendable
 
     /// Default timeout for lookup.
     var defaultLookupTimeout: DispatchTimeInterval { get }
@@ -43,7 +43,11 @@ public protocol ServiceDiscovery: AnyObject {
     ///   - service: The service to lookup
     ///   - deadline: Lookup is considered to have timed out if it does not complete by this time
     ///   - callback: The closure to receive lookup result
-    func lookup(_ service: Service, deadline: DispatchTime?, callback: @escaping (Result<[Instance], Error>) -> Void)
+    @preconcurrency func lookup(
+        _ service: Service,
+        deadline: DispatchTime?,
+        callback: @Sendable @escaping (Result<[Instance], Error>) -> Void
+    )
 
     /// Subscribes to receive a service's instances whenever they change.
     ///
@@ -61,25 +65,28 @@ public protocol ServiceDiscovery: AnyObject {
     ///                 including cancellation requested through `CancellationToken`.
     ///
     /// -  Returns: A ``CancellationToken`` instance that can be used to cancel the subscription in the future.
-    func subscribe(
+    @preconcurrency func subscribe(
         to service: Service,
-        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete completionHandler: @escaping (CompletionReason) -> Void
+        onNext nextResultHandler: @Sendable @escaping (Result<[Instance], Error>) -> Void,
+        onComplete completionHandler: @Sendable @escaping (CompletionReason) -> Void
     ) -> CancellationToken
 }
 
 // MARK: - Subscription
 
 /// Enables cancellation of service discovery subscription.
-public class CancellationToken {
+public final class CancellationToken: Sendable {
     private let _isCancelled: ManagedAtomic<Bool>
-    private let _completionHandler: (CompletionReason) -> Void
+    private let _completionHandler: @Sendable (CompletionReason) -> Void
 
     /// Returns `true` if the subscription has been cancelled.
     public var isCancelled: Bool { self._isCancelled.load(ordering: .acquiring) }
 
     /// Creates a new token.
-    public init(isCancelled: Bool = false, completionHandler: @escaping (CompletionReason) -> Void = { _ in }) {
+    @preconcurrency public init(
+        isCancelled: Bool = false,
+        completionHandler: @Sendable @escaping (CompletionReason) -> Void = { _ in }
+    ) {
         self._isCancelled = ManagedAtomic<Bool>(isCancelled)
         self._completionHandler = completionHandler
     }
@@ -93,10 +100,8 @@ public class CancellationToken {
     }
 }
 
-extension CancellationToken: @unchecked Sendable {}
-
 /// Reason that leads to service discovery subscription completion.
-public struct CompletionReason: Equatable, CustomStringConvertible {
+public struct CompletionReason: Equatable, CustomStringConvertible, Sendable {
     internal enum ReasonType: Int, Equatable, CustomStringConvertible {
         case cancellationRequested
         case serviceDiscoveryUnavailable
