@@ -54,9 +54,7 @@ func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Servic
 extension NSLocking {
     func withLock<R>(_ body: () throws -> R) rethrows -> R {
         self.lock()
-        defer {
-            self.unlock()
-        }
+        defer { self.unlock() }
         return try body()
     }
 }
