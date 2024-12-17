@@ -50,6 +50,18 @@ func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Servic
     return _result
 }
 
+#if compiler(<6.0)
+extension NSLocking {
+    func withLock<R>(_ body: () throws -> R) rethrows -> R {
+        self.lock()
+        defer {
+            self.unlock()
+        }
+        return try body()
+    }
+}
+#endif
+
 private final class LockedValue<T>: @unchecked Sendable {
     private var locked_value: T
     private let lock = NSLock()
