@@ -17,41 +17,44 @@ import Dispatch
 import Foundation  // for NSLock
 
 /// Provides lookup for service instances that are stored in-memory.
-public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: ServiceDiscovery {
+@preconcurrency
+public class InMemoryServiceDiscovery<Service: Hashable & Sendable, Instance: Hashable & Sendable>: ServiceDiscovery,
+    @unchecked Sendable
+{
     private let configuration: Configuration
 
     private let lock = NSLock()
-    private var _isShutdown: Bool = false
-    private var _serviceInstances: [Service: [Instance]]
-    private var _serviceSubscriptions: [Service: [Subscription]] = [:]
+    private var locked_isShutdown: Bool = false
+    private var locked_serviceInstances: [Service: [Instance]]
+    private var locked_serviceSubscriptions: [Service: [Subscription]] = [:]
 
     private let queue: DispatchQueue
 
     public var defaultLookupTimeout: DispatchTimeInterval { self.configuration.defaultLookupTimeout }
 
-    public var isShutdown: Bool { self.lock.withLock { self._isShutdown } }
+    public var isShutdown: Bool { self.lock.withLock { self.locked_isShutdown } }
 
     public init(
         configuration: Configuration,
         queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)
     ) {
         self.configuration = configuration
-        self._serviceInstances = configuration.serviceInstances
+        self.locked_serviceInstances = configuration.serviceInstances
         self.queue = queue
     }
 
-    public func lookup(
+    @preconcurrency public func lookup(
         _ service: Service,
         deadline: DispatchTime? = nil,
-        callback: @escaping (Result<[Instance], Error>) -> Void
+        callback: @Sendable @escaping (Result<[Instance], Error>) -> Void
     ) {
         let isDone = ManagedAtomic<Bool>(false)
 
         let lookupWorkItem = DispatchWorkItem {
             let result = self.lock.withLock { () -> Result<[Instance], Error> in
-                if self._isShutdown { return .failure(ServiceDiscoveryError.unavailable) }
+                if self.locked_isShutdown { return .failure(ServiceDiscoveryError.unavailable) }
 
-                if let instances = self._lookupNow(service) {
+                if let instances = self.locked_lookupNow(service) {
                     return .success(instances)
                 } else {
                     return .failure(LookupError.unknownService)
@@ -65,9 +68,11 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
         self.queue.async(execute: lookupWorkItem)
 
+        let lookupWorkItemBox = UncheckedSendableBox(lookupWorkItem)
+
         // Timeout handler
         self.queue.asyncAfter(deadline: deadline ?? DispatchTime.now() + self.defaultLookupTimeout) {
-            lookupWorkItem.cancel()
+            lookupWorkItemBox.value.cancel()
 
             if isDone.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged {
                 callback(.failure(LookupError.timedOut))
@@ -80,10 +85,10 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         case yieldFirstElement([Instance]?)
     }
 
-    @discardableResult public func subscribe(
+    @preconcurrency @discardableResult public func subscribe(
         to service: Service,
-        onNext nextResultHandler: @escaping (Result<[Instance], Error>) -> Void,
-        onComplete completionHandler: @escaping (CompletionReason) -> Void = { _ in }
+        onNext nextResultHandler: @Sendable @escaping (Result<[Instance], Error>) -> Void,
+        onComplete completionHandler: @Sendable @escaping (CompletionReason) -> Void = { _ in }
     ) -> CancellationToken {
         let cancellationToken = CancellationToken(completionHandler: completionHandler)
         let subscription = Subscription(
@@ -93,14 +98,14 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         )
 
         let action = self.lock.withLock { () -> SubscribeAction in
-            guard !self._isShutdown else { return .cancelSinceShutdown }
+            guard !self.locked_isShutdown else { return .cancelSinceShutdown }
 
             // first add the subscription
-            var subscriptions = self._serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
+            var subscriptions = self.locked_serviceSubscriptions.removeValue(forKey: service) ?? [Subscription]()
             subscriptions.append(subscription)
-            self._serviceSubscriptions[service] = subscriptions
+            self.locked_serviceSubscriptions[service] = subscriptions
 
-            return .yieldFirstElement(self._lookupNow(service))
+            return .yieldFirstElement(self.locked_lookupNow(service))
         }
 
         switch action {
@@ -119,14 +124,14 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     /// Registers a service and its `instances`.
     public func register(_ service: Service, instances newInstances: [Instance]) {
         let maybeSubscriptions = self.lock.withLock { () -> [Subscription]? in
-            guard !self._isShutdown else { return nil }
+            guard !self.locked_isShutdown else { return nil }
 
-            let previousInstances = self._serviceInstances[service]
+            let previousInstances = self.locked_serviceInstances[service]
             guard previousInstances != newInstances else { return nil }
 
-            self._serviceInstances[service] = newInstances
+            self.locked_serviceInstances[service] = newInstances
 
-            let subscriptions = self._serviceSubscriptions[service]
+            let subscriptions = self.locked_serviceSubscriptions[service]
             return subscriptions
         }
 
@@ -138,12 +143,12 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
 
     public func shutdown() {
         let maybeServiceSubscriptions = self.lock.withLock { () -> Dictionary<Service, [Subscription]>.Values? in
-            if self._isShutdown { return nil }
+            if self.locked_isShutdown { return nil }
 
-            self._isShutdown = true
-            let subscriptions = self._serviceSubscriptions
-            self._serviceSubscriptions = [:]
-            self._serviceInstances = [:]
+            self.locked_isShutdown = true
+            let subscriptions = self.locked_serviceSubscriptions
+            self.locked_serviceSubscriptions = [:]
+            self.locked_serviceInstances = [:]
             return subscriptions.values
         }
 
@@ -156,8 +161,8 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
         }
     }
 
-    private func _lookupNow(_ service: Service) -> [Instance]? {
-        if let instances = self._serviceInstances[service] { return instances } else { return nil }
+    private func locked_lookupNow(_ service: Service) -> [Instance]? {
+        if let instances = self.locked_serviceInstances[service] { return instances } else { return nil }
     }
 
     private struct Subscription {
@@ -167,8 +172,15 @@ public class InMemoryServiceDiscovery<Service: Hashable, Instance: Hashable>: Se
     }
 }
 
+/// A box for wrapping types that aren't marked as Sendable, but are known to be thread-safe.
+private struct UncheckedSendableBox<T>: @unchecked Sendable {
+    private let _value: T
+    init(_ value: T) { self._value = value }
+    var value: T { _value }
+}
+
 public extension InMemoryServiceDiscovery {
-    struct Configuration {
+    struct Configuration: Sendable {
         /// Default configuration
         public static var `default`: Configuration { .init() }
 

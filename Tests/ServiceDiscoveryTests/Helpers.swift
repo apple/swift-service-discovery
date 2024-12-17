@@ -36,16 +36,36 @@ func ensureResult<SD: ServiceDiscovery>(serviceDiscovery: SD, service: SD.Servic
     [SD.Instance], Error
 > {
     let semaphore = DispatchSemaphore(value: 0)
-    var result: Result<[SD.Instance], Error>?
+    let result: LockedValue<Result<[SD.Instance], Error>?> = .init(nil)
 
     serviceDiscovery.lookup(service, deadline: nil) {
-        result = $0
+        result.value = $0
         semaphore.signal()
     }
 
     _ = semaphore.wait(timeout: DispatchTime.now() + .seconds(1))
 
-    guard let _result = result else { throw LookupError.timedOut }
+    guard let _result = result.value else { throw LookupError.timedOut }
 
     return _result
+}
+
+#if compiler(<6.0)
+extension NSLocking {
+    func withLock<R>(_ body: () throws -> R) rethrows -> R {
+        self.lock()
+        defer { self.unlock() }
+        return try body()
+    }
+}
+#endif
+
+private final class LockedValue<T>: @unchecked Sendable {
+    private var locked_value: T
+    private let lock = NSLock()
+    init(_ value: T) { locked_value = value }
+    var value: T {
+        set { lock.withLock { locked_value = newValue } }
+        get { lock.withLock { locked_value } }
+    }
 }

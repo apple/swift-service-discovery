@@ -74,13 +74,14 @@ public extension ServiceDiscovery {
 }
 
 /// An async sequence of snapshot listings of service instances.
-@available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) public struct ServiceSnapshots<Instance>: AsyncSequence {
+@available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) @preconcurrency
+public struct ServiceSnapshots<Instance: Sendable>: AsyncSequence {
     public typealias Element = [Instance]
     typealias AsyncSnapshotsStream = AsyncThrowingStream<Element, Error>
 
     private let stream: AsyncSnapshotsStream
 
-    public init<SnapshotSequence: AsyncSequence>(_ snapshots: SnapshotSequence)
+    @preconcurrency public init<SnapshotSequence: AsyncSequence & Sendable>(_ snapshots: SnapshotSequence)
     where SnapshotSequence.Element == Element {
         self.stream = AsyncThrowingStream { continuation in
             let task = Task {

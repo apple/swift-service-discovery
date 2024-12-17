@@ -15,8 +15,8 @@
 import Dispatch
 
 /// A service discovery implementation that maps services using a closure.
-public final class MapServiceServiceDiscovery<BaseDiscovery: ServiceDiscovery, ComputedService: Hashable> {
-    typealias Transformer = (ComputedService) throws -> BaseDiscovery.Service
+public final class MapServiceServiceDiscovery<BaseDiscovery: ServiceDiscovery, ComputedService: Hashable & Sendable> {
+    typealias Transformer = @Sendable (ComputedService) throws -> BaseDiscovery.Service
 
     private let originalSD: BaseDiscovery
     private let transformer: Transformer
@@ -43,10 +43,10 @@ extension MapServiceServiceDiscovery: ServiceDiscovery {
     ///   - service: The service to lookup
     ///   - deadline: Lookup is considered to have timed out if it does not complete by this time
     ///   - callback: The closure to receive lookup result
-    public func lookup(
+    @preconcurrency public func lookup(
         _ service: ComputedService,
         deadline: DispatchTime?,
-        callback: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void
+        callback: @Sendable @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void
     ) {
         let derivedService: BaseDiscovery.Service
 
@@ -74,10 +74,10 @@ extension MapServiceServiceDiscovery: ServiceDiscovery {
     ///                 including cancellation requested through `CancellationToken`.
     ///
     /// -  Returns: A ``CancellationToken`` instance that can be used to cancel the subscription in the future.
-    public func subscribe(
+    @preconcurrency public func subscribe(
         to service: ComputedService,
-        onNext nextResultHandler: @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void,
-        onComplete completionHandler: @escaping (CompletionReason) -> Void
+        onNext nextResultHandler: @Sendable @escaping (Result<[BaseDiscovery.Instance], Error>) -> Void,
+        onComplete completionHandler: @Sendable @escaping (CompletionReason) -> Void
     ) -> CancellationToken {
         let derivedService: BaseDiscovery.Service
 

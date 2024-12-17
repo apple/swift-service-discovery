@@ -97,7 +97,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
         let resultCounter = ManagedAtomic<Int>(0)
 
         let onCompleteInvoked = ManagedAtomic<Bool>(false)
-        let onComplete: (CompletionReason) -> Void = { reason in
+        let onComplete: @Sendable (CompletionReason) -> Void = { reason in
             XCTAssertEqual(
                 reason,
                 .serviceDiscoveryUnavailable,
@@ -211,7 +211,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
         )
 
         let onCompleteInvoked = ManagedAtomic<Bool>(false)
-        let onComplete: (CompletionReason) -> Void = { reason in
+        let onComplete: @Sendable (CompletionReason) -> Void = { reason in
             XCTAssertEqual(
                 reason,
                 .cancellationRequested,
@@ -401,7 +401,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
 
         let counter = ManagedAtomic<Int>(0)
 
-        Task {
+        Task { @Sendable in
             // Allow time for subscription to start
             usleep(100_000)
             // Update #1
@@ -411,7 +411,7 @@ class FilterInstanceServiceDiscoveryTests: XCTestCase {
             baseServiceDiscovery.register(Self.barService, instances: Self.barBaseInstances)
         }
 
-        let task = Task<Void, Error> { () in
+        let task = Task<Void, Error> { @Sendable in
             do {
                 for try await instances in serviceDiscovery.subscribe(to: Self.barService) {
                     switch counter.wrappingIncrementThenLoad(ordering: .relaxed) {
