@@ -173,7 +173,7 @@ public class InMemoryServiceDiscovery<Service: Hashable & Sendable, Instance: Ha
 }
 
 /// A box for wrapping types that aren't marked as Sendable, but are known to be thread-safe.
-private final class UncheckedSendableBox<T>: @unchecked Sendable {
+private struct UncheckedSendableBox<T>: @unchecked Sendable {
     private let _value: T
     init(_ value: T) { self._value = value }
     var value: T { _value }
