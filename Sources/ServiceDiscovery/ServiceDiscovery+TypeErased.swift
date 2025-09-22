@@ -32,8 +32,11 @@ public class ServiceDiscoveryBox<Service: Hashable & Sendable, Instance: Hashabl
             @Sendable @escaping (CompletionReason) -> Void
         ) -> CancellationToken
 
+    /// The default lookup timeout.
     public var defaultLookupTimeout: DispatchTimeInterval { self._defaultLookupTimeout() }
 
+    /// Creates a new box.
+    /// - Parameter serviceDiscovery: The existing instance to wrap in the box.
     @preconcurrency public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl)
     where ServiceDiscoveryImpl.Service == Service, ServiceDiscoveryImpl.Instance == Instance {
         self._underlying = serviceDiscovery
@@ -47,12 +50,14 @@ public class ServiceDiscoveryBox<Service: Hashable & Sendable, Instance: Hashabl
         }
     }
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     @preconcurrency public func lookup(
         _ service: Service,
         deadline: DispatchTime? = nil,
         callback: @Sendable @escaping (Result<[Instance], Error>) -> Void
     ) { self._lookup(service, deadline, callback) }
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     @preconcurrency @discardableResult public func subscribe(
         to service: Service,
         onNext nextResultHandler: @Sendable @escaping (Result<[Instance], Error>) -> Void,
@@ -79,7 +84,9 @@ public class ServiceDiscoveryBox<Service: Hashable & Sendable, Instance: Hashabl
 
 /// Type-erased wrapper for ``ServiceDiscovery/ServiceDiscovery`` instance.
 public final class AnyServiceDiscovery: ServiceDiscovery {
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public typealias Service = AnyHashable
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public typealias Instance = AnyHashable
     private let _underlying: any ServiceDiscovery
 
@@ -97,8 +104,11 @@ public final class AnyServiceDiscovery: ServiceDiscovery {
             @Sendable @escaping (CompletionReason) -> Void
         ) -> CancellationToken
 
+    /// Default lookup timeout.
     public var defaultLookupTimeout: DispatchTimeInterval { self._defaultLookupTimeout() }
 
+    /// Creates a new type-erased service discovery instance.
+    /// - Parameter serviceDiscovery: The instance to wrap.
     public init<ServiceDiscoveryImpl: ServiceDiscovery>(_ serviceDiscovery: ServiceDiscoveryImpl) {
         self._underlying = serviceDiscovery
         self._defaultLookupTimeout = { serviceDiscovery.defaultLookupTimeout }
@@ -287,4 +297,5 @@ extension AnyServiceDiscovery {
     }
 }
 
+/// An error type thrown by the type-erased service discovery type.
 public enum TypeErasedServiceDiscoveryError: Error, Sendable { case typeMismatch(description: String) }
