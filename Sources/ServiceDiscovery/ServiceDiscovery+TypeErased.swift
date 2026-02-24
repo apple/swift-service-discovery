@@ -18,7 +18,7 @@ import Dispatch
 
 /// Generic wrapper for ``ServiceDiscovery/ServiceDiscovery`` instance.
 @preconcurrency
-public class ServiceDiscoveryBox<Service: Hashable & Sendable, Instance: Hashable & Sendable>: ServiceDiscovery {
+public final class ServiceDiscoveryBox<Service: Hashable & Sendable, Instance: Hashable & Sendable>: ServiceDiscovery {
     private let _underlying: any Sendable
 
     private let _defaultLookupTimeout: @Sendable () -> DispatchTimeInterval

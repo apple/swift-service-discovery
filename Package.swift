@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.0
 
 //===----------------------------------------------------------------------===//
 //
@@ -28,6 +28,11 @@ let package = Package(
             name: "ServiceDiscovery",
             dependencies: [
                 .product(name: "Atomics", package: "swift-atomics"), .product(name: "Logging", package: "swift-log"),
+            ],
+            swiftSettings: [
+                // This is required since `AnyServiceDiscovery` is otherwise not working
+                // due to its usage of `AnyHashable` which is not `Sendable`
+                .swiftLanguageMode(.v5)
             ]
         ),
 
