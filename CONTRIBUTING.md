@@ -99,3 +99,7 @@ SwiftServiceDiscovery uses XCTest to run tests on both macOS and Linux.
 ## How to contribute your work
 
 Please open a pull request at https://github.com/apple/swift-service-discovery. Make sure the CI passes, and then wait for code review.
+
+## Automated release process
+
+This repository uses automated releases based on semantic versioning labels. See the [Auto Release Workflow documentation](https://github.com/apple/swift-temporal-sdk/blob/main/.github/workflows/README.md) for details.
