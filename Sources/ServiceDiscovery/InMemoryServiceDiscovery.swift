@@ -188,23 +188,27 @@ private struct UncheckedSendableBox<T>: @unchecked Sendable {
     var value: T { _value }
 }
 
-public extension InMemoryServiceDiscovery {
-    struct Configuration: Sendable {
+extension InMemoryServiceDiscovery {
+    /// Configuration for ``InMemoryServiceDiscovery```
+    public struct Configuration: Sendable {
         /// Default configuration
-        static var `default`: Configuration { .init() }
+        public static var `default`: Configuration { .init() }
 
         /// Lookup timeout in case `deadline` is not specified
-        var defaultLookupTimeout: DispatchTimeInterval = .milliseconds(100)
+        public var defaultLookupTimeout: DispatchTimeInterval = .milliseconds(100)
 
         internal var serviceInstances: [Service: [Instance]]
 
-        init() { self.init(serviceInstances: [:]) }
+        /// Create an instance of ``InMemoryServiceDiscovery/Configuration``
+        public init() { self.init(serviceInstances: [:]) }
 
         /// Initializes `InMemoryServiceDiscovery` with the given service to instances mappings.
-        init(serviceInstances: [Service: [Instance]]) { self.serviceInstances = serviceInstances }
+        public init(serviceInstances: [Service: [Instance]]) { self.serviceInstances = serviceInstances }
 
         /// Registers `service` and its `instances`.
-        mutating func register(service: Service, instances: [Instance]) { self.serviceInstances[service] = instances }
+        public mutating func register(service: Service, instances: [Instance]) {
+            self.serviceInstances[service] = instances
+        }
     }
 }
 
