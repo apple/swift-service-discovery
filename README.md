@@ -37,6 +37,7 @@ As the API has just launched, not many implementations exist yet. If you are int
 
 - [ordo-one/package-consul](https://github.com/ordo-one/package-consul) - discovery using [Consul](https://www.consul.io)
 - [tuplestream/swift-k8s-service-discovery](https://github.com/tuplestream/swift-k8s-service-discovery) - service discovery using the Kubernetes APIs
+- [swiftkube/servicediscovery](https://github.com/swiftkube/servicediscovery) - service discovery for Kubernetes objects using [SwiftkubeClient](https://github.com/swiftkube/client)
 - Your library? Send in a pull request adding it to this list!
 
 ### Obtaining a service's instances
