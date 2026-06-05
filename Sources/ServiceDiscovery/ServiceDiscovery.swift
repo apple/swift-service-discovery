@@ -118,6 +118,7 @@ public struct CompletionReason: Equatable, CustomStringConvertible, Sendable {
 
     internal let type: ReasonType
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public var description: String { "CompletionReason.\(String(describing: self.type))" }
 
     /// Cancellation requested through `CancellationToken`.
@@ -148,6 +149,7 @@ public struct LookupError: Error, Equatable, CustomStringConvertible {
 
     internal let type: ErrorType
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public var description: String { "LookupError.\(String(describing: self.type))" }
 
     /// Lookup cannot be completed because the service is unknown.
@@ -173,10 +175,14 @@ public struct ServiceDiscoveryError: Error, Equatable, CustomStringConvertible {
 
     internal let type: ErrorType
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public var description: String { "ServiceDiscoveryError.\(String(describing: self.type))" }
 
     /// `ServiceDiscovery` instance is unavailable.
     public static let unavailable = ServiceDiscoveryError(type: .unavailable)
 
+    /// Any other error.
+    /// - Parameter detail: The error description.
+    /// - Returns: A new error.
     public static func other(_ detail: String) -> ServiceDiscoveryError { ServiceDiscoveryError(type: .other(detail)) }
 }

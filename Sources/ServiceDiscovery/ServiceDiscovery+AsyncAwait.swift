@@ -76,11 +76,14 @@ public extension ServiceDiscovery {
 /// An async sequence of snapshot listings of service instances.
 @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *) @preconcurrency
 public struct ServiceSnapshots<Instance: Sendable>: AsyncSequence {
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public typealias Element = [Instance]
     typealias AsyncSnapshotsStream = AsyncThrowingStream<Element, Error>
 
     private let stream: AsyncSnapshotsStream
 
+    /// Creates a new snapshots container.
+    /// - Parameter snapshots: A snapshots sequence.
     @preconcurrency public init<SnapshotSequence: AsyncSequence & Sendable>(_ snapshots: SnapshotSequence)
     where SnapshotSequence.Element == Element {
         self.stream = AsyncThrowingStream { continuation in
@@ -95,13 +98,16 @@ public struct ServiceSnapshots<Instance: Sendable>: AsyncSequence {
         }
     }
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public func makeAsyncIterator() -> AsyncIterator { AsyncIterator(self.stream.makeAsyncIterator()) }
 
+    /// The async iterator of the service snapshots sequence.
     public struct AsyncIterator: AsyncIteratorProtocol {
         private var underlying: AsyncSnapshotsStream.Iterator
 
         init(_ iterator: AsyncSnapshotsStream.Iterator) { self.underlying = iterator }
 
+        // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
         public mutating func next() async throws -> [Instance]? { try await self.underlying.next() }
     }
 }

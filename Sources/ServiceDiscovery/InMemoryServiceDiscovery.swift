@@ -30,10 +30,16 @@ public class InMemoryServiceDiscovery<Service: Hashable & Sendable, Instance: Ha
 
     private let queue: DispatchQueue
 
+    /// The default lookup timeout.
     public var defaultLookupTimeout: DispatchTimeInterval { self.configuration.defaultLookupTimeout }
 
+    /// Whether the service discovery instance is shut down.
     public var isShutdown: Bool { self.lock.withLock { self.locked_isShutdown } }
 
+    /// Creates a new service discovery instance.
+    /// - Parameters:
+    ///   - configuration: The configuration of the instance.
+    ///   - queue: The queue to invoke callbacks on.
     public init(
         configuration: Configuration,
         queue: DispatchQueue = .init(label: "InMemoryServiceDiscovery", attributes: .concurrent)
@@ -43,6 +49,7 @@ public class InMemoryServiceDiscovery<Service: Hashable & Sendable, Instance: Ha
         self.queue = queue
     }
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     @preconcurrency public func lookup(
         _ service: Service,
         deadline: DispatchTime? = nil,
@@ -85,6 +92,7 @@ public class InMemoryServiceDiscovery<Service: Hashable & Sendable, Instance: Ha
         case yieldFirstElement([Instance]?)
     }
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     @preconcurrency @discardableResult public func subscribe(
         to service: Service,
         onNext nextResultHandler: @Sendable @escaping (Result<[Instance], Error>) -> Void,
@@ -141,6 +149,7 @@ public class InMemoryServiceDiscovery<Service: Hashable & Sendable, Instance: Ha
         }
     }
 
+    /// Shut down the instance.
     public func shutdown() {
         let maybeServiceSubscriptions = self.lock.withLock { () -> Dictionary<Service, [Subscription]>.Values? in
             if self.locked_isShutdown { return nil }
@@ -179,8 +188,9 @@ private struct UncheckedSendableBox<T>: @unchecked Sendable {
     var value: T { _value }
 }
 
-public extension InMemoryServiceDiscovery {
-    struct Configuration: Sendable {
+extension InMemoryServiceDiscovery {
+    /// Configuration for ``InMemoryServiceDiscovery```
+    public struct Configuration: Sendable {
         /// Default configuration
         public static var `default`: Configuration { .init() }
 
@@ -189,6 +199,7 @@ public extension InMemoryServiceDiscovery {
 
         internal var serviceInstances: [Service: [Instance]]
 
+        /// Create an instance of ``InMemoryServiceDiscovery/Configuration``
         public init() { self.init(serviceInstances: [:]) }
 
         /// Initializes `InMemoryServiceDiscovery` with the given service to instances mappings.

@@ -14,13 +14,21 @@
 
 /// Represents a service instance with host and port.
 public struct HostPort: Hashable, CustomStringConvertible, Sendable {
+    /// The hostname.
     public let host: String
+
+    /// The port number.
     public let port: Int
 
+    /// Create a new `HostPort`.
+    /// - Parameters:
+    ///   - host: The hostname.
+    ///   - port: The port number.
     public init(host: String, port: Int) {
         self.host = host
         self.port = port
     }
 
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public var description: String { "\(self.host):\(self.port)" }
 }
