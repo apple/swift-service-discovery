@@ -27,6 +27,7 @@ jobs:
     with:
       runner_pool: nightly
       build_scheme: swift-service-discovery
+      swift_6_1_enabled: false
 
   cxx-interop:
     name: Cxx interop
