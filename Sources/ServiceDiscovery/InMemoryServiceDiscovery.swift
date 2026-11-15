@@ -164,7 +164,8 @@ public class InMemoryServiceDiscovery<Service: Hashable & Sendable, Instance: Ha
         guard let serviceSubscriptions = maybeServiceSubscriptions else { return }
 
         for subscriptions in serviceSubscriptions {
-            for sub in subscriptions.lazy.filter({ !$0.cancellationToken.isCancelled }) {
+            // Mark the subscription as cancelled so that a later `cancel()` does not complete it a second time
+            for sub in subscriptions where sub.cancellationToken.markCancelled() {
                 sub.completionHandler(.serviceDiscoveryUnavailable)
             }
         }
