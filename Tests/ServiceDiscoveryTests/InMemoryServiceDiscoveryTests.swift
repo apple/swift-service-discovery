@@ -258,6 +258,39 @@ class InMemoryServiceDiscoveryTests: XCTestCase {
         XCTAssertTrue(onCompleteInvoked.load(ordering: .relaxed), "Expected onComplete to be invoked")
     }
 
+    func test_subscribe_cancelAfterShutdown() throws {
+        let configuration = InMemoryServiceDiscovery<Service, Instance>
+            .Configuration(serviceInstances: [Self.fooService: Self.fooInstances])
+        let serviceDiscovery = InMemoryServiceDiscovery(configuration: configuration)
+
+        let onCompleteCounter = ManagedAtomic<Int>(0)
+        let onComplete: @Sendable (CompletionReason) -> Void = { reason in
+            XCTAssertEqual(
+                reason,
+                .serviceDiscoveryUnavailable,
+                "Expected CompletionReason to be .serviceDiscoveryUnavailable, got \(reason)"
+            )
+            onCompleteCounter.wrappingIncrement(ordering: .relaxed)
+        }
+
+        let cancellationToken = serviceDiscovery.subscribe(
+            to: Self.fooService,
+            onNext: { _ in },
+            onComplete: onComplete
+        )
+
+        serviceDiscovery.shutdown()
+        XCTAssertEqual(onCompleteCounter.load(ordering: .relaxed), 1, "Expected onComplete to be invoked on shutdown")
+
+        // The subscription has already completed, so cancelling it must not invoke `onComplete` again
+        cancellationToken.cancel()
+        XCTAssertEqual(
+            onCompleteCounter.load(ordering: .relaxed),
+            1,
+            "Expected onComplete to be invoked once, got \(onCompleteCounter.load(ordering: .relaxed)) times"
+        )
+    }
+
     func test_concurrency() throws {
         let configuration = InMemoryServiceDiscovery<Service, Instance>
             .Configuration(serviceInstances: [Self.fooService: Self.fooInstances])

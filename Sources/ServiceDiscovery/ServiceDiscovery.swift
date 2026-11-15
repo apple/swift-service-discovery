@@ -93,10 +93,19 @@ public final class CancellationToken: Sendable {
 
     /// Cancels the subscription.
     public func cancel() {
-        guard self._isCancelled.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged else {
-            return
-        }
+        guard self.markCancelled() else { return }
         self._completionHandler(.cancellationRequested)
+    }
+
+    /// Marks the subscription as cancelled without invoking the completion handler.
+    ///
+    /// Used when the subscription is completed for another reason (e.g. shutdown), so that a
+    /// later ``cancel()`` does not invoke the completion handler a second time.
+    ///
+    /// - Returns: `true` if the subscription had not been cancelled yet, in which case the caller
+    ///   is responsible for invoking the completion handler.
+    internal func markCancelled() -> Bool {
+        self._isCancelled.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged
     }
 }
 
