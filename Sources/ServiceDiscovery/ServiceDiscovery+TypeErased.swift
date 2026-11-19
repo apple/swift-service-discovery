@@ -283,15 +283,28 @@ extension AnyServiceDiscovery {
     public func subscribeAndUnwrap<Service, Instance>(to service: Service) -> ServiceSnapshots<Instance>
     where Service: Hashable & Sendable, Instance: Hashable & Sendable {
         ServiceSnapshots(
-            AsyncThrowingStream { continuation in
-                Task {
-                    do {
-                        for try await snapshot in self.subscribe(to: service) {
-                            continuation.yield(try snapshot.map(self.transform))
+            AsyncThrowingStream<[Instance], Error> { continuation in
+                let cancellationToken = self.subscribeAndUnwrap(
+                    to: service,
+                    onNext: { (result: Result<[Instance], Error>) in
+                        switch result {
+                        case .success(let instances): continuation.yield(instances)
+                        case .failure(let error):
+                            // LookupError is recoverable (e.g., service is added *after* subscription begins), so don't give up yet
+                            guard error is LookupError else { return continuation.finish(throwing: error) }
                         }
-                        continuation.finish()
-                    } catch { continuation.finish(throwing: error) }
-                }
+                    },
+                    onComplete: { reason in
+                        switch reason {
+                        case .cancellationRequested: continuation.finish()
+                        case .serviceDiscoveryUnavailable:
+                            continuation.finish(throwing: ServiceDiscoveryError.unavailable)
+                        default: continuation.finish(throwing: ServiceDiscoveryError.other(reason.description))
+                        }
+                    }
+                )
+
+                continuation.onTermination = { @Sendable (_) in cancellationToken.cancel() }
             }
         )
     }
